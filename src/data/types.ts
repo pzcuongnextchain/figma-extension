@@ -56,3 +56,19 @@ export interface ExportData {
   componentSets: { [key: string]: ComponentSetData };
   documents: NodeData[];
 }
+
+export interface ComponentProp {
+  title: string;
+  description: string;
+  example?: string;
+}
+
+export interface ComponentAnalysisData {
+  componentName: string;
+  componentType: string;
+  componentProps: ComponentProp[];
+}
+
+export interface ComponentAnalysisProps {
+  components: ComponentAnalysisData[];
+}

@@ -56,7 +56,7 @@ export function ExportView({
         >
           {isLoading ? "Analyzing..." : "Analyze"}
         </Button>
-        <Button variant="outlined" color="primary" onClick={onCopy} disabled>
+        <Button variant="outlined" color="primary" onClick={onCopy}>
           Copy to Builder
         </Button>
       </Stack>

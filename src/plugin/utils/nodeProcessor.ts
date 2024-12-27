@@ -66,7 +66,7 @@ export async function processComponents(): Promise<{
       name: component.name,
       description: component.description || "",
       remote: component.remote,
-      //   documentationLinks: component.documentationLinks.map((link) => link.url),
+      // documentationLinks: component.documentationLinks.map((link) => link.url),
     };
   }
 

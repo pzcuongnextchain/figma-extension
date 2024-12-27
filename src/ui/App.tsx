@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { ComponentAnalysis } from "../components/ComponentAnalysis";
 import { EmptyState } from "../components/EmptyState";
 import { ExportView } from "../components/ExportView";
-import { FIGMA_BUTTON_TYPE, FIGMA_MESSAGE_TYPE } from "../data/types";
+import {
+  ExportData,
+  FIGMA_BUTTON_TYPE,
+  FIGMA_MESSAGE_TYPE,
+} from "../data/types";
 import { PostService } from "../services/postService";
 
 function App() {
@@ -12,6 +16,8 @@ function App() {
   const [hasSelectedFrames, setHasSelectedFrames] = useState(false);
   const [framePreviewUrl, setFramePreviewUrl] = useState<string | null>(null);
   const [geminiResponse, setGeminiResponse] = useState<any[]>([]);
+  const [exportData, setExportData] = useState<ExportData | null>(null);
+  const [base64Image, setBase64Image] = useState<string | null>(null);
 
   const onExport = () => {
     setIsLoading(true);
@@ -34,11 +40,13 @@ function App() {
       if (event.data.pluginMessage.type === FIGMA_MESSAGE_TYPE.EXPORT_DATA) {
         try {
           const pluginMessage = event.data.pluginMessage;
-          const exportData = JSON.parse(pluginMessage.data);
-          const base64Image = pluginMessage.image;
+          const parsedExportData = JSON.parse(pluginMessage.data);
+          const imageData = pluginMessage.image;
+          setExportData(parsedExportData);
+          setBase64Image(imageData);
           const geminiResponse = await PostService.sendToGemini(
-            exportData,
-            base64Image,
+            parsedExportData,
+            imageData,
           );
           const parsedResponse = JSON.parse(geminiResponse.response);
           setGeminiResponse(parsedResponse);
@@ -90,7 +98,11 @@ function App() {
               onCopy={onCopy}
             />
             {geminiResponse.length > 0 && (
-              <ComponentAnalysis components={geminiResponse} />
+              <ComponentAnalysis
+                components={geminiResponse}
+                exportData={exportData ?? undefined}
+                base64Image={base64Image ?? undefined}
+              />
             )}
           </>
         )}
