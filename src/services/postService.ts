@@ -7,13 +7,13 @@ interface GeminiResponse {
 }
 
 export class PostService {
-  static async sendToGemini(
+  static async componentAnalysis(
     exportData: ExportData,
     base64Image: string,
   ): Promise<ReadableStream> {
     try {
       const response = await axiosInstance.post(
-        "/gemini",
+        "/gemini/component-analysis",
         {
           ...exportData,
           base64Image,

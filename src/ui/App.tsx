@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { ComponentAnalysis } from "../components/ComponentAnalysis";
 import { EmptyState } from "../components/EmptyState";
 import { ExportView } from "../components/ExportView";
-import { mockupResponse } from "../data/mockupResponse";
 import { PostService } from "../services/postService";
 import {
   ExportData,
@@ -46,14 +45,6 @@ function App() {
   const onCopy = () => {
     try {
       setIsLoading(true);
-      // setGeminiResponse(mockupResponse);
-      if (Array.isArray(mockupResponse) && mockupResponse.length > 0) {
-        console.log("Mockup response:", mockupResponse);
-        openCodeExplorer(mockupResponse);
-      } else {
-        console.error("Invalid mockup response format");
-      }
-
       parent.postMessage(
         { pluginMessage: { type: FIGMA_MESSAGE_TYPE.EXPORT_DATA } },
         "*",
@@ -76,27 +67,23 @@ function App() {
           setExportData(parsedExportData);
           setBase64Image(imageData);
 
-          // Start the streaming request
-          const response = await PostService.sendToGemini(
+          const response = await PostService.componentAnalysis(
             parsedExportData,
             imageData,
           );
 
           let accumulatedData = "";
           for await (const chunk of response) {
-            console.log("chunk:", chunk);
             const text = chunk;
             accumulatedData += text;
 
             try {
-              // Try to parse the accumulated data
               const parsedData = JSON.parse(accumulatedData);
               if (Array.isArray(parsedData)) {
                 setGeminiResponse(parsedData);
                 accumulatedData = ""; // Clear the buffer after successful parse
               }
             } catch (e) {
-              // If parsing fails, keep accumulating
               continue;
             }
           }
@@ -113,7 +100,6 @@ function App() {
 
     window.addEventListener("message", handleMessage);
 
-    // Initial selection check
     parent.postMessage(
       { pluginMessage: { type: FIGMA_BUTTON_TYPE.CHECK_SELECTION } },
       "*",
