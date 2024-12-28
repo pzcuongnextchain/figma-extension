@@ -1,5 +1,4 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse } from "axios";
-
 const API_BASE_URL = "http://localhost:8080";
 
 class AxiosService {
@@ -9,7 +8,6 @@ class AxiosService {
   private constructor() {
     this.axiosInstance = axios.create({
       baseURL: API_BASE_URL,
-      timeout: 30000,
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
@@ -29,7 +27,6 @@ class AxiosService {
   private setupInterceptors(): void {
     this.axiosInstance.interceptors.request.use(
       (config) => {
-        // You can add auth tokens or other headers here
         return config;
       },
       (error: AxiosError) => {

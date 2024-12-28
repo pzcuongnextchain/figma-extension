@@ -3,7 +3,7 @@ import {
   ComponentSetData,
   NodeData,
   Override,
-} from "../../data/types";
+} from "../../types/common.type";
 
 export function processNode(node: SceneNode): NodeData {
   const nodeData: NodeData = {

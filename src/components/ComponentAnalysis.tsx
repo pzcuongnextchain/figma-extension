@@ -12,8 +12,8 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
-import { ComponentAnalysisData, ExportData } from "../data/types";
 import { PostService } from "../services/postService";
+import { ComponentAnalysisData, ExportData } from "../types/common.type";
 
 interface ComponentAnalysisProps {
   components: ComponentAnalysisData[];
@@ -67,22 +67,26 @@ export function ComponentAnalysis({
     setComponents([...components, newComponent]);
   };
 
-  const handleGenerateCode = async () => {
+  const handleAnalyze = async () => {
     if (!exportData || !base64Image) {
-      console.error("Missing required data for code generation");
+      console.error("Missing required data for analysis");
       return;
     }
 
     setIsGenerating(true);
     try {
-      const response = await PostService.generateCode(
+      const data = await PostService.saveGenerationData(
         components,
-        exportData,
+        exportData.documents,
         base64Image,
       );
-      console.log("Generated code:", response);
+      const id = data.response.id;
+
+      const url = new URL("http://localhost:5173/code-explorer");
+      url.searchParams.set("id", id);
+      window.open(url.toString(), "_blank");
     } catch (error) {
-      console.error("Error generating code:", error);
+      console.error("Error preparing analysis:", error);
     } finally {
       setIsGenerating(false);
     }
@@ -97,7 +101,7 @@ export function ComponentAnalysis({
         paddingTop={2}
       >
         <Typography variant="h6" fontWeight="bold">
-          Component Analysis
+          Component List
         </Typography>
         <Button
           variant="contained"
@@ -241,9 +245,9 @@ export function ComponentAnalysis({
                             <Typography variant="body2">
                               {prop.description}
                             </Typography>
-                            <Typography variant="body2">
+                            {/* <Typography variant="body2">
                               {prop.example}
-                            </Typography>
+                            </Typography> */}
                           </>
                         )}
                       </Box>
@@ -259,11 +263,11 @@ export function ComponentAnalysis({
       <Button
         variant="contained"
         color="primary"
-        onClick={handleGenerateCode}
+        onClick={handleAnalyze}
         disabled={isGenerating}
         sx={{ mt: 2 }}
       >
-        {isGenerating ? "Generating..." : "Generate Code"}
+        {isGenerating ? "Analyzing..." : "Analyze Components"}
       </Button>
 
       <div ref={bottomRef} />

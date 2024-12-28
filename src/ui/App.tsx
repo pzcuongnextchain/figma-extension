@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { ComponentAnalysis } from "../components/ComponentAnalysis";
 import { EmptyState } from "../components/EmptyState";
 import { ExportView } from "../components/ExportView";
+import { mockupResponse } from "../data/mockupResponse";
+import { PostService } from "../services/postService";
 import {
   ExportData,
   FIGMA_BUTTON_TYPE,
   FIGMA_MESSAGE_TYPE,
-} from "../data/types";
-import { PostService } from "../services/postService";
+} from "../types/common.type";
 
 function App() {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,60 +20,106 @@ function App() {
   const [exportData, setExportData] = useState<ExportData | null>(null);
   const [base64Image, setBase64Image] = useState<string | null>(null);
 
-  const onExport = () => {
-    setIsLoading(true);
-    parent.postMessage(
-      { pluginMessage: { type: FIGMA_BUTTON_TYPE.EXPORT } },
-      "*",
+  const openCodeExplorer = (data: any) => {
+    const url = new URL(window.location.href);
+    url.pathname = "/";
+    const dataToPass = Array.isArray(data) ? data : [];
+    window.open(
+      "http://localhost:5173/code-explorer?data=" + JSON.stringify(dataToPass),
+      "_blank",
     );
+  };
+
+  const onExport = async () => {
+    setIsLoading(true);
+    try {
+      parent.postMessage(
+        { pluginMessage: { type: FIGMA_BUTTON_TYPE.EXPORT } },
+        "*",
+      );
+    } catch (error) {
+      console.error("Error during export:", error);
+      setIsLoading(false);
+    }
   };
 
   const onCopy = () => {
-    setIsLoading(true);
-    parent.postMessage(
-      { pluginMessage: { type: FIGMA_BUTTON_TYPE.COPY } },
-      "*",
-    );
+    try {
+      setIsLoading(true);
+      // setGeminiResponse(mockupResponse);
+      if (Array.isArray(mockupResponse) && mockupResponse.length > 0) {
+        console.log("Mockup response:", mockupResponse);
+        openCodeExplorer(mockupResponse);
+      } else {
+        console.error("Invalid mockup response format");
+      }
+
+      parent.postMessage(
+        { pluginMessage: { type: FIGMA_MESSAGE_TYPE.EXPORT_DATA } },
+        "*",
+      );
+    } catch (error) {
+      console.error("Error copying data:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-    window.onmessage = async (event) => {
-      if (event.data.pluginMessage.type === FIGMA_MESSAGE_TYPE.EXPORT_DATA) {
+    const handleMessage = async (event: MessageEvent) => {
+      const pluginMessage = event.data.pluginMessage;
+
+      if (pluginMessage?.type === FIGMA_MESSAGE_TYPE.EXPORT_DATA) {
         try {
-          const pluginMessage = event.data.pluginMessage;
           const parsedExportData = JSON.parse(pluginMessage.data);
           const imageData = pluginMessage.image;
           setExportData(parsedExportData);
           setBase64Image(imageData);
-          const geminiResponse = await PostService.sendToGemini(
+
+          // Start the streaming request
+          const response = await PostService.sendToGemini(
             parsedExportData,
             imageData,
           );
-          const parsedResponse = JSON.parse(geminiResponse.response);
-          setGeminiResponse(parsedResponse);
-          console.log("Gemini response:", parsedResponse);
+
+          let accumulatedData = "";
+          for await (const chunk of response) {
+            console.log("chunk:", chunk);
+            const text = chunk;
+            accumulatedData += text;
+
+            try {
+              // Try to parse the accumulated data
+              const parsedData = JSON.parse(accumulatedData);
+              if (Array.isArray(parsedData)) {
+                setGeminiResponse(parsedData);
+                accumulatedData = ""; // Clear the buffer after successful parse
+              }
+            } catch (e) {
+              // If parsing fails, keep accumulating
+              continue;
+            }
+          }
         } catch (error) {
-          console.error("Error processing export:", error);
+          console.error("Error processing export data:", error);
         } finally {
           setIsLoading(false);
         }
-      }
-      if (
-        event.data.pluginMessage.type === FIGMA_MESSAGE_TYPE.SELECTION_CHANGE
-      ) {
-        setHasSelectedFrames(event.data.pluginMessage.hasSelection);
-        setFramePreviewUrl(event.data.pluginMessage.framePreviewUrl);
+      } else if (pluginMessage?.type === FIGMA_MESSAGE_TYPE.SELECTION_CHANGE) {
+        setHasSelectedFrames(pluginMessage.hasSelection);
+        setFramePreviewUrl(pluginMessage.framePreviewUrl);
       }
     };
 
+    window.addEventListener("message", handleMessage);
+
+    // Initial selection check
     parent.postMessage(
       { pluginMessage: { type: FIGMA_BUTTON_TYPE.CHECK_SELECTION } },
       "*",
     );
 
-    return () => {
-      window.onmessage = null;
-    };
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
   const handleSelectLayers = () => {

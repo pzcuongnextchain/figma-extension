@@ -15,7 +15,8 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["@figma/plugin-typings", "vite/client"],
+    "types": ["@figma/plugin-typings", "vite/client", "node"],
+    "allowImportingTsExtensions": true
   },
   "include": ["src/**/*"]
 }
