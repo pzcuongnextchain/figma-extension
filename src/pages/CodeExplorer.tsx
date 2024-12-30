@@ -1,5 +1,7 @@
-import { Box, Grid } from "@mui/material";
-import React, { useEffect, useState } from "react";
+import SaveIcon from "@mui/icons-material/Save";
+import { Box, Button, Grid } from "@mui/material";
+import JSZip from "jszip";
+import React, { useEffect, useRef, useState } from "react";
 import { ChatBox } from "../components/Chat/ChatBox";
 import { FileList } from "../components/FileTree/FileList";
 import { getLanguage } from "../components/FileTree/utils";
@@ -13,6 +15,50 @@ export const CodeExplorer: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [chatValue, setChatValue] = useState("");
+  const urlParams = new URLSearchParams(window.location.search);
+  const generationId = urlParams.get("id");
+  const [updatedFiles, setUpdatedFiles] = useState<Set<string>>(new Set());
+  const updateTimeoutRef = useRef<NodeJS.Timeout>();
+  const [isIncompleteResponse, setIsIncompleteResponse] = useState(false);
+
+  const updateFile = (fileName: string, content: string) => {
+    console.log("Updating file:", fileName);
+    setFiles((prevFiles) => {
+      const fileIndex = prevFiles.findIndex((f) => f.fileName === fileName);
+      if (fileIndex === -1) {
+        console.log("Adding new file:", fileName);
+        return [...prevFiles, { fileName, fileContent: content }];
+      } else {
+        console.log("Updating existing file:", fileName);
+        if (prevFiles[fileIndex].fileContent !== content) {
+          setUpdatedFiles((prev) => new Set(prev).add(fileName));
+
+          if (updateTimeoutRef.current) {
+            clearTimeout(updateTimeoutRef.current);
+          }
+          updateTimeoutRef.current = window.setTimeout(() => {
+            setUpdatedFiles((prev) => {
+              const newSet = new Set(prev);
+              newSet.delete(fileName);
+              return newSet;
+            });
+          }, 3000) as any;
+        }
+
+        const newFiles = [...prevFiles];
+        newFiles[fileIndex] = {
+          ...newFiles[fileIndex],
+          fileContent: content,
+        };
+        return newFiles;
+      }
+    });
+  };
+
+  const isFileUpdated = (fileName: string) => {
+    return updatedFiles.has(fileName);
+  };
 
   useEffect(() => {
     let abortController = new AbortController();
@@ -29,99 +75,10 @@ export const CodeExplorer: React.FC = () => {
             abortController.signal,
           );
 
-          const reader = response.body!.getReader();
-          let accumulatedData = "";
-
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-
-            const chunk = new TextDecoder().decode(value);
-            accumulatedData += chunk;
-
-            const fileNameMatches = accumulatedData.match(
-              /"fileName"\s*:\s*"([^"]+)"/g,
-            );
-            if (fileNameMatches) {
-              fileNameMatches.forEach((match) => {
-                const fileName = match.match(/"fileName"\s*:\s*"([^"]+)"/)?.[1];
-                if (fileName) {
-                  setFiles((prevFiles) => {
-                    if (!prevFiles.some((f) => f.fileName === fileName)) {
-                      return [...prevFiles, { fileName, fileContent: null }];
-                    }
-                    return prevFiles;
-                  });
-                }
-              });
-            }
-
-            let startIndex = 0;
-            while (true) {
-              const openBracket = accumulatedData.indexOf("[", startIndex);
-              if (openBracket === -1) break;
-
-              let bracketCount = 1;
-              let index = openBracket + 1;
-              let complete = false;
-
-              while (index < accumulatedData.length) {
-                if (accumulatedData[index] === "[") bracketCount++;
-                if (accumulatedData[index] === "]") bracketCount--;
-
-                if (bracketCount === 0) {
-                  complete = true;
-                  break;
-                }
-                index++;
-              }
-
-              if (complete) {
-                try {
-                  const jsonStr = accumulatedData.substring(
-                    openBracket,
-                    index + 1,
-                  );
-                  const parsedData = JSON.parse(jsonStr);
-
-                  if (Array.isArray(parsedData)) {
-                    parsedData.forEach((item) => {
-                      const fileName = item.path || item.fileName;
-                      setFiles((prevFiles) => {
-                        const updatedFiles = [...prevFiles];
-                        const existingFileIndex = updatedFiles.findIndex(
-                          (f) => f.fileName === fileName,
-                        );
-
-                        if (existingFileIndex !== -1) {
-                          updatedFiles[existingFileIndex] = {
-                            ...updatedFiles[existingFileIndex],
-                            fileContent: item.fileContent,
-                          };
-                        } else {
-                          updatedFiles.push({
-                            fileName,
-                            fileContent: item.fileContent,
-                          });
-                        }
-
-                        return updatedFiles;
-                      });
-                    });
-                  }
-
-                  accumulatedData = accumulatedData.substring(index + 1);
-                  startIndex = 0;
-                } catch (e) {
-                  startIndex = openBracket + 1;
-                }
-              } else {
-                break;
-              }
-            }
-          }
+          await processStreamResponse(response);
         } catch (error) {
-          console.error("Error processing stream:", error);
+          console.error("Error fetching data:", error);
+          setIsIncompleteResponse(true);
         } finally {
           setIsLoading(false);
         }
@@ -132,6 +89,14 @@ export const CodeExplorer: React.FC = () => {
 
     return () => {
       abortController.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -152,7 +117,11 @@ export const CodeExplorer: React.FC = () => {
     setIsStreaming(true);
 
     try {
-      const response = await PostService.streamChatResponse(userMessage);
+      const response = (await PostService.streamChatResponse(
+        userMessage,
+        generationId!,
+      )) as any;
+
       const reader = response.body!.getReader();
 
       while (true) {
@@ -167,6 +136,166 @@ export const CodeExplorer: React.FC = () => {
     } finally {
       setIsStreaming(false);
     }
+  };
+
+  const processStreamResponse = async (response: Response) => {
+    const reader = response.body!.getReader();
+    let accumulatedData = "";
+    let pendingContents: Record<string, string> = {};
+    let hasCompleteData = false;
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        const chunk = new TextDecoder().decode(value);
+        console.log("Received chunk:", chunk);
+        accumulatedData += chunk;
+
+        // Check for incomplete JSON content
+        const isFileContentStart = accumulatedData.includes('"fileContent":');
+        const hasQuoteAfterFileContent = /\"fileContent\"\s*:\s*\"[^"]*\"/.test(
+          accumulatedData,
+        );
+
+        console.log("Accumulated data:", accumulatedData);
+        console.log("Has complete file content:", hasQuoteAfterFileContent);
+
+        // If we have fileContent but it's not properly closed with quotes
+        if (isFileContentStart && !hasQuoteAfterFileContent) {
+          console.log("Detected incomplete file content");
+          setIsIncompleteResponse(true);
+        }
+
+        if (done) {
+          // Additional check for incomplete JSON at the end
+          try {
+            JSON.parse(accumulatedData);
+            if (
+              !accumulatedData.endsWith("}") &&
+              !accumulatedData.endsWith('"}')
+            ) {
+              console.log("JSON does not end properly");
+              setIsIncompleteResponse(true);
+            }
+          } catch (e) {
+            console.log("Failed to parse final JSON:", e);
+            setIsIncompleteResponse(true);
+          }
+          break;
+        }
+
+        // Rest of your existing code for processing matches...
+        const fileEntryRegex =
+          /"(fileName|fileContent)"\s*:\s*"((?:[^"\\]|\\.)*?)"/g;
+        let match;
+        let currentFileName: string | null = null;
+        let currentContent: string | null = null;
+
+        while ((match = fileEntryRegex.exec(accumulatedData)) !== null) {
+          const [_, type, value] = match;
+          if (type === "fileName") {
+            currentFileName = value;
+            if (pendingContents[currentFileName]) {
+              try {
+                const fileContent = JSON.parse(
+                  `"${pendingContents[currentFileName]}"`,
+                );
+                updateFile(currentFileName, fileContent);
+                delete pendingContents[currentFileName];
+                hasCompleteData = true;
+              } catch (e) {
+                console.error(
+                  `Error processing content for ${currentFileName}:`,
+                  e,
+                );
+              }
+              currentFileName = null;
+            }
+          } else if (type === "fileContent") {
+            currentContent = value;
+            if (currentFileName) {
+              try {
+                const fileContent = JSON.parse(`"${currentContent}"`);
+                updateFile(currentFileName, fileContent);
+                hasCompleteData = true;
+                currentFileName = null;
+              } catch (e) {
+                console.error(`Error processing content:`, e);
+              }
+            } else {
+              const nextFileNameMatch = accumulatedData
+                .slice(match.index)
+                .match(/"fileName"\s*:\s*"([^"]+)"/);
+              if (nextFileNameMatch) {
+                const fileName = nextFileNameMatch[1];
+                pendingContents[fileName] = currentContent;
+              }
+            }
+          }
+        }
+
+        // Trim processed data
+        const lastMatch = accumulatedData.lastIndexOf('"}');
+        if (lastMatch > -1) {
+          accumulatedData = accumulatedData.slice(lastMatch + 2);
+        }
+      }
+    } catch (error) {
+      console.error("Error processing stream:", error);
+      setIsIncompleteResponse(true);
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
+  const handleChatSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!chatValue.trim() || !generationId) return;
+
+    setUpdatedFiles(new Set());
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    setIsStreaming(true);
+    setIsIncompleteResponse(false);
+
+    try {
+      const response = await PostService.streamChatResponse(
+        chatValue,
+        generationId,
+      );
+      await processStreamResponse(response);
+      setChatValue("");
+    } catch (error) {
+      console.error("Error in chat:", error);
+      setIsIncompleteResponse(true);
+    }
+  };
+
+  const handleSaveToLocal = () => {
+    // Create a zip file containing all files
+    const zip = new JSZip();
+
+    files.forEach((file) => {
+      if (file.fileContent) {
+        // Create folders if the file path contains directories
+        const filePath = file.fileName;
+        zip.file(filePath, file.fileContent);
+      }
+    });
+
+    // Generate and download the zip file
+    zip.generateAsync({ type: "blob" }).then((content) => {
+      const url = window.URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "generated-code.zip";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    });
   };
 
   return (
@@ -187,16 +316,35 @@ export const CodeExplorer: React.FC = () => {
           borderColor: "divider",
         }}
       >
+        <Box
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            zIndex: 1,
+          }}
+        >
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSaveToLocal}
+            size="small"
+          >
+            Save to Local
+          </Button>
+        </Box>
         <FileList
           files={files}
           selectedFile={selectedFile}
           onFileClick={handleFileClick}
+          isFileUpdated={isFileUpdated}
         />
         <ChatBox
-          value={inputValue}
-          onChange={handleInputChange}
-          onSubmit={handleSubmit}
+          value={chatValue}
+          onChange={(e) => setChatValue(e.target.value)}
+          onSubmit={handleChatSubmit}
           isStreaming={isStreaming}
+          showContinue={isIncompleteResponse}
         />
       </Grid>
 
@@ -205,6 +353,7 @@ export const CodeExplorer: React.FC = () => {
           selectedFile={selectedFile}
           getLanguage={getLanguage}
           files={files}
+          isFileUpdated={isFileUpdated}
         />
       </Grid>
     </Grid>

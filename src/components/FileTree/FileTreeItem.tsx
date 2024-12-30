@@ -7,15 +7,17 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
   level = 0,
   onFileClick,
   selectedPath,
+  isFileUpdated,
 }) => {
-  const [expanded, setExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const paddingLeft = level * 16;
   const hasChildren = Object.keys(node.children).length > 0;
 
   const handleClick = () => {
     if (node.isFile) {
       onFileClick(node.path, node.content);
     } else {
-      setExpanded(!expanded);
+      setIsExpanded(!isExpanded);
     }
   };
 
@@ -24,13 +26,14 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
       <ListItem
         button
         onClick={handleClick}
-        selected={selectedPath === node.path}
         sx={{
-          pl: level * 2 + 2,
+          pl: paddingLeft / 8,
           py: 0.5,
           minHeight: 36,
+          backgroundColor:
+            selectedPath === node.path ? "action.selected" : "transparent",
           "&:hover": {
-            bgcolor: "action.hover",
+            backgroundColor: "action.hover",
           },
         }}
       >
@@ -43,7 +46,7 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
                   sx={{
                     mr: 1,
                     fontSize: "1.2rem",
-                    transform: expanded ? "rotate(90deg)" : "none",
+                    transform: isExpanded ? "rotate(90deg)" : "none",
                     transition: "transform 0.2s",
                   }}
                 >
@@ -53,18 +56,38 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
               <Typography
                 variant="body2"
                 sx={{
-                  color: node.isFile ? "text.primary" : "text.secondary",
+                  color: node.isFile
+                    ? selectedPath === node.path
+                      ? "primary.main"
+                      : "text.primary"
+                    : "text.secondary",
                   fontWeight: node.isFile ? 400 : 500,
                 }}
               >
                 {node.name}
               </Typography>
+              {node.isFile && isFileUpdated?.(node.path) && (
+                <Box
+                  component="span"
+                  sx={{
+                    ml: 1,
+                    px: 1,
+                    py: 0.25,
+                    bgcolor: "success.light",
+                    color: "success.contrastText",
+                    borderRadius: 1,
+                    fontSize: "0.65rem",
+                  }}
+                >
+                  Updated
+                </Box>
+              )}
             </Box>
           }
           secondary={node.isFile && !node.content ? "Loading..." : null}
         />
       </ListItem>
-      {hasChildren && expanded && (
+      {hasChildren && isExpanded && (
         <Box>
           {Object.values(node.children)
             .sort((a, b) => {
@@ -78,6 +101,7 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
                 level={level + 1}
                 onFileClick={onFileClick}
                 selectedPath={selectedPath}
+                isFileUpdated={isFileUpdated}
               />
             ))}
         </Box>

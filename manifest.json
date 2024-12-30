@@ -1,6 +1,6 @@
 {
-  "name": "Builder.io Export",
-  "id": "builder.io.export",
+  "name": "Export Code (preview)",
+  "id": "export-code-preview",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/index.html",

@@ -14,20 +14,16 @@ import {
 function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSelectedFrames, setHasSelectedFrames] = useState(false);
-  const [framePreviewUrl, setFramePreviewUrl] = useState<string | null>(null);
   const [geminiResponse, setGeminiResponse] = useState<any[]>([]);
   const [exportData, setExportData] = useState<ExportData | null>(null);
-  const [base64Image, setBase64Image] = useState<string | null>(null);
-
-  const openCodeExplorer = (data: any) => {
-    const url = new URL(window.location.href);
-    url.pathname = "/";
-    const dataToPass = Array.isArray(data) ? data : [];
-    window.open(
-      "http://localhost:5173/code-explorer?data=" + JSON.stringify(dataToPass),
-      "_blank",
-    );
-  };
+  const [frameImages, setFrameImages] = useState<
+    Array<{
+      id: string;
+      name: string;
+      base64: string;
+      base64ImageWithoutMime: string;
+    }>
+  >([]);
 
   const onExport = async () => {
     setIsLoading(true);
@@ -42,15 +38,52 @@ function App() {
     }
   };
 
-  const onCopy = () => {
+  const handleAnalyzeSchema = async () => {
+    if (frameImages.length === 0) {
+      console.error("Please select frames first.");
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       parent.postMessage(
-        { pluginMessage: { type: FIGMA_MESSAGE_TYPE.EXPORT_DATA } },
+        {
+          pluginMessage: { type: FIGMA_BUTTON_TYPE.EXPORT_SCHEMA },
+        },
         "*",
       );
+
+      const waitForExportData = new Promise<{
+        data: string;
+        images: Array<{
+          id: string;
+          base64ImageWithoutMime: string;
+        }>;
+      }>((resolve) => {
+        const messageHandler = (event: MessageEvent) => {
+          const pluginMessage = event.data.pluginMessage;
+          if (pluginMessage?.type === FIGMA_MESSAGE_TYPE.EXPORT_SCHEMA_DATA) {
+            window.removeEventListener("message", messageHandler);
+            resolve({
+              data: pluginMessage.data,
+              images: pluginMessage.images,
+            });
+          }
+        };
+        window.addEventListener("message", messageHandler);
+      });
+
+      const { data: exportDataString, images } = await waitForExportData;
+      const parsedExportData = JSON.parse(exportDataString);
+
+      const data = await PostService.saveSchemaAnalysisData(
+        images,
+        parsedExportData as { documents: { id: string }[] },
+      );
+
+      PostService.openSchemaExplorerInNewTab(data.response.id);
     } catch (error) {
-      console.error("Error copying data:", error);
+      console.error("Error analyzing schema:", error);
     } finally {
       setIsLoading(false);
     }
@@ -63,9 +96,9 @@ function App() {
       if (pluginMessage?.type === FIGMA_MESSAGE_TYPE.EXPORT_DATA) {
         try {
           const parsedExportData = JSON.parse(pluginMessage.data);
-          const imageData = pluginMessage.image;
+          const imageData = pluginMessage.images;
           setExportData(parsedExportData);
-          setBase64Image(imageData);
+          setFrameImages(imageData);
 
           const response = await PostService.componentAnalysis(
             parsedExportData,
@@ -80,10 +113,22 @@ function App() {
             try {
               const parsedData = JSON.parse(accumulatedData);
               if (Array.isArray(parsedData)) {
-                setGeminiResponse(parsedData);
-                accumulatedData = ""; // Clear the buffer after successful parse
+                const transformedData = parsedData.map(
+                  (frameAnalysis, index) => ({
+                    frameId: imageData[index]?.id || `frame-${index}`,
+                    frameName: imageData[index]?.name || `Frame ${index + 1}`,
+                    analysis: Array.isArray(frameAnalysis)
+                      ? frameAnalysis
+                      : [frameAnalysis],
+                  }),
+                );
+
+                console.log("Transformed data:", transformedData);
+                setGeminiResponse(transformedData);
+                accumulatedData = "";
               }
             } catch (e) {
+              console.error("Error parsing data:", e, accumulatedData);
               continue;
             }
           }
@@ -94,7 +139,9 @@ function App() {
         }
       } else if (pluginMessage?.type === FIGMA_MESSAGE_TYPE.SELECTION_CHANGE) {
         setHasSelectedFrames(pluginMessage.hasSelection);
-        setFramePreviewUrl(pluginMessage.framePreviewUrl);
+        if (pluginMessage.frameImages) {
+          setFrameImages(pluginMessage.frameImages);
+        }
       }
     };
 
@@ -117,24 +164,36 @@ function App() {
     );
   };
 
+  const handleProcessAllLayers = () => {
+    setIsLoading(true);
+    parent.postMessage(
+      { pluginMessage: { type: FIGMA_BUTTON_TYPE.PROCESS_ALL_LAYERS } },
+      "*",
+    );
+  };
+
   return (
     <Container>
       <Stack spacing={4}>
         {!hasSelectedFrames ? (
-          <EmptyState onSelectLayers={handleSelectLayers} />
+          <EmptyState
+            onSelectLayers={handleSelectLayers}
+            onProcessAllLayers={handleProcessAllLayers}
+          />
         ) : (
           <>
             <ExportView
-              framePreviewUrl={framePreviewUrl}
+              frameImages={frameImages}
               isLoading={isLoading}
               onExport={onExport}
-              onCopy={onCopy}
+              onAnalyzeSchema={handleAnalyzeSchema}
+              disableAnalyzeSchema={frameImages.length === 0}
             />
             {geminiResponse.length > 0 && (
               <ComponentAnalysis
                 components={geminiResponse}
                 exportData={exportData ?? undefined}
-                base64Image={base64Image ?? undefined}
+                frameImages={frameImages}
               />
             )}
           </>

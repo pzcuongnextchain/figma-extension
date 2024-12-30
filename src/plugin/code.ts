@@ -1,6 +1,5 @@
 import { processComponentSets } from "./utils/nodeProcessor";
 
-import _ from "lodash";
 import {
   ExportData,
   FIGMA_BUTTON_TYPE,
@@ -8,8 +7,8 @@ import {
 } from "../types/common.type";
 import { processComponents } from "./utils/nodeProcessor";
 figma.showUI(__html__, {
-  width: 400,
-  height: 550,
+  width: 450,
+  height: 700,
   themeColors: true,
 });
 
@@ -18,17 +17,67 @@ figma.ui.onmessage = async (msg) => {
     const selection = figma.currentPage.selection;
     const data = await processSelectedNodes(selection);
 
-    const bytes = await _.first(selection)!.exportAsync({
-      format: "PNG",
-      constraint: { type: "SCALE", value: 2 },
-    });
-
-    const base64String = figma.base64Encode(bytes);
+    const frameImages = await Promise.all(
+      selection.map(async (node) => {
+        if (node.type === "FRAME") {
+          try {
+            const bytes = await node.exportAsync({
+              format: "JPG",
+              constraint: { type: "SCALE", value: 2 },
+            });
+            return {
+              id: node.id,
+              name: node.name,
+              base64: `data:image/png;base64,${figma.base64Encode(bytes)}`,
+              base64ImageWithoutMime: `${figma.base64Encode(bytes)}`,
+            };
+          } catch (error) {
+            console.error(`Error exporting frame ${node.name}:`, error);
+            return null;
+          }
+        }
+        return null;
+      }),
+    ).then((results) => results.filter(Boolean));
 
     figma.ui.postMessage({
       type: FIGMA_MESSAGE_TYPE.EXPORT_DATA,
       data: JSON.stringify(data, null, 2),
-      image: base64String,
+      images: frameImages,
+    });
+  }
+
+  if (msg.type === FIGMA_BUTTON_TYPE.EXPORT_SCHEMA) {
+    const selection = figma.currentPage.selection;
+    const data = await processSelectedNodes(selection);
+
+    const frameImages = await Promise.all(
+      selection.map(async (node) => {
+        if (node.type === "FRAME") {
+          try {
+            const bytes = await node.exportAsync({
+              format: "JPG",
+              constraint: { type: "SCALE", value: 2 },
+            });
+            return {
+              id: node.id,
+              name: node.name,
+              base64: `data:image/png;base64,${figma.base64Encode(bytes)}`,
+              base64ImageWithoutMime: `${figma.base64Encode(bytes)}`,
+            };
+          } catch (error) {
+            console.error(`Error exporting frame ${node.name}:`, error);
+            return null;
+          }
+        }
+        return null;
+      }),
+    ).then((results) => results.filter(Boolean));
+
+    figma.ui.postMessage({
+      type: FIGMA_MESSAGE_TYPE.EXPORT_SCHEMA_DATA,
+      data: JSON.stringify(data, null, 2),
+      images: frameImages,
     });
   }
 
@@ -46,17 +95,41 @@ figma.ui.onmessage = async (msg) => {
 figma.on("selectionchange", async () => {
   const selection = figma.currentPage.selection;
   const hasSelection = selection.length > 0;
-  let framePreviewUrl = null;
+  let frameImages: { id: string; name: string; base64: string }[] = [];
 
-  if (hasSelection && _.first(selection)!.type === "FRAME") {
-    framePreviewUrl = await generateFramePreview(_.first(selection)!);
+  if (hasSelection) {
+    frameImages = (await Promise.all(
+      selection.map(async (node) => {
+        if (node.type === "FRAME") {
+          try {
+            const bytes = await node.exportAsync({
+              format: "PNG",
+              constraint: { type: "SCALE", value: 2 },
+            });
+            return {
+              id: node.id,
+              name: node.name,
+              base64: `data:image/png;base64,${figma.base64Encode(bytes)}`,
+            };
+          } catch (error) {
+            console.error(`Error exporting frame ${node.name}:`, error);
+            return null;
+          }
+        }
+        return null;
+      }),
+    ).then((results) => results.filter(Boolean))) as {
+      id: string;
+      name: string;
+      base64: string;
+    }[];
   }
 
-  if (hasSelection && framePreviewUrl) {
+  if (hasSelection && frameImages.length > 0) {
     figma.ui.postMessage({
       type: FIGMA_MESSAGE_TYPE.SELECTION_CHANGE,
       hasSelection,
-      framePreviewUrl,
+      frameImages,
     });
   } else {
     figma.notify("Please select a frame");
@@ -104,22 +177,4 @@ function processNode(node: SceneNode) {
   }
 
   return nodeData;
-}
-
-async function generateFramePreview(node: SceneNode): Promise<string | null> {
-  if (node.type === "FRAME") {
-    try {
-      const bytes = await node.exportAsync({
-        format: "PNG",
-        constraint: { type: "SCALE", value: 2 },
-      });
-
-      const base64String = figma.base64Encode(bytes);
-      return `data:image/png;base64,${base64String}`;
-    } catch (error) {
-      console.error("Error generating preview:", error);
-      return null;
-    }
-  }
-  return null;
 }

@@ -1,17 +1,25 @@
+import SchemaIcon from "@mui/icons-material/Schema";
 import { Box, Button, Stack, Typography } from "@mui/material";
 
 interface ExportViewProps {
-  framePreviewUrl: string | null;
+  frameImages?: Array<{
+    id: string;
+    name: string;
+    base64: string;
+    base64ImageWithoutMime: string;
+  }>;
   isLoading: boolean;
   onExport: () => void;
-  onCopy: () => void;
+  onAnalyzeSchema: () => void;
+  disableAnalyzeSchema: boolean;
 }
 
 export function ExportView({
-  framePreviewUrl,
+  frameImages = [],
   isLoading,
   onExport,
-  onCopy,
+  onAnalyzeSchema,
+  disableAnalyzeSchema,
 }: ExportViewProps) {
   return (
     <>
@@ -24,30 +32,47 @@ export function ExportView({
         <Typography variant="h6" fontWeight="bold" paddingTop={2}>
           Component Analysis
         </Typography>
-        {framePreviewUrl && (
-          <Box
-            sx={{
-              width: "100%",
-              borderRadius: 1,
-              overflow: "hidden",
-              border: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <img
-              src={framePreviewUrl}
-              alt="Selected frame preview"
-              style={{
-                width: "100%",
-                height: "auto",
-                display: "block",
-              }}
-            />
-          </Box>
+        {frameImages.length > 0 ? (
+          <Stack spacing={2} width="100%">
+            {frameImages.map((image) => (
+              <Box
+                key={image.id}
+                sx={{
+                  width: "100%",
+                  borderRadius: 1,
+                  overflow: "hidden",
+                  border: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ p: 1 }}>
+                  {image.name}
+                </Typography>
+                <img
+                  src={image.base64}
+                  alt={`Frame preview: ${image.id}`}
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    display: "block",
+                  }}
+                />
+              </Box>
+            ))}
+          </Stack>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            No frames selected
+          </Typography>
         )}
       </Stack>
 
-      <Stack direction="row" spacing={2} justifyContent="center">
+      <Stack
+        direction="row"
+        spacing={2}
+        justifyContent="center"
+        paddingBottom={3}
+      >
         <Button
           variant="contained"
           color="primary"
@@ -56,8 +81,14 @@ export function ExportView({
         >
           {isLoading ? "Analyzing..." : "Analyze"}
         </Button>
-        <Button variant="outlined" color="primary" onClick={onCopy}>
-          Copy to Builder
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={onAnalyzeSchema}
+          disabled={isLoading || disableAnalyzeSchema}
+          startIcon={<SchemaIcon />}
+        >
+          {isLoading ? "Analyzing..." : "Analyze Schema"}
         </Button>
       </Stack>
     </>

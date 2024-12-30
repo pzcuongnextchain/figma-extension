@@ -21,6 +21,7 @@ export interface FileTreeItemProps {
   level?: number;
   onFileClick: (fileName: string, content: string | null) => void;
   selectedPath: string | null;
+  isFileUpdated?: (fileName: string) => boolean;
 }
 
 export interface CodeExplorerProps {
@@ -31,17 +32,20 @@ export interface FileViewerProps {
   selectedFile: FileContent | null;
   getLanguage: (fileName: string) => string;
   files: FileContent[];
+  isFileUpdated?: (fileName: string) => boolean;
 }
 
 export interface FileListProps {
   files: FileContent[];
   selectedFile: FileContent | null;
   onFileClick: (fileName: string, content: string | null) => void;
+  isFileUpdated?: (fileName: string) => boolean;
 }
 
 export interface ChatBoxProps {
   value: string;
   isStreaming: boolean;
+  showContinue?: boolean;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (event: React.FormEvent) => void;
 }

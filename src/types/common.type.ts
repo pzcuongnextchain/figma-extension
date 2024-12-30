@@ -1,12 +1,15 @@
 export enum FIGMA_BUTTON_TYPE {
   EXPORT = "EXPORT",
+  EXPORT_SCHEMA = "EXPORT_SCHEMA",
   COPY = "COPY",
   CHECK_SELECTION = "CHECK_SELECTION",
   SELECT_LAYERS = "SELECT_LAYERS",
+  PROCESS_ALL_LAYERS = "PROCESS_ALL_LAYERS",
 }
 
 export enum FIGMA_MESSAGE_TYPE {
   EXPORT_DATA = "EXPORT_DATA",
+  EXPORT_SCHEMA_DATA = "EXPORT_SCHEMA_DATA",
   SELECTION_CHANGE = "SELECTION_CHANGE",
 }
 
@@ -70,5 +73,14 @@ export interface ComponentAnalysisData {
 }
 
 export interface ComponentAnalysisProps {
-  components: ComponentAnalysisData[];
+  components: Array<{
+    frameId: string;
+    frameName: string;
+    analysis: ComponentAnalysisData[];
+  }>;
+  exportData?: ExportData;
+  frameImages?: Array<{
+    id: string;
+    base64ImageWithoutMime: string;
+  }>;
 }

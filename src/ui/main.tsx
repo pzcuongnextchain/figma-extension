@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import { CodeExplorer } from "../pages/CodeExplorer";
+import { SchemaExplorer } from "../pages/SchemaExplorer";
 import App from "./App";
 
 const theme = createTheme();
@@ -28,6 +29,7 @@ root.render(
       <BrowserRouter>
         <Routes>
           <Route path="/code-explorer" element={<CodeExplorer />} />
+          <Route path="/schema-explorer" element={<SchemaExplorer />} />
         </Routes>
       </BrowserRouter>
     )}

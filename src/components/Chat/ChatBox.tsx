@@ -1,45 +1,52 @@
-import { Box, Paper, Typography } from "@mui/material";
+import { Box, TextField, Typography } from "@mui/material";
 import React from "react";
 import { ChatBoxProps } from "../../types/explorer";
-import { ChatInput } from "./ChatInput";
 
 export const ChatBox: React.FC<ChatBoxProps> = ({
   value,
   isStreaming,
+  showContinue,
   onChange,
   onSubmit,
 }) => {
   return (
-    <Paper
-      elevation={0}
+    <Box
+      component="form"
+      onSubmit={onSubmit}
       sx={{
         position: "absolute",
         bottom: 0,
         left: 0,
         right: 0,
-        height: 120,
+        p: 2,
+        bgcolor: "background.paper",
         borderTop: 1,
         borderColor: "divider",
-        borderRadius: 0,
-        bgcolor: "background.paper",
       }}
     >
-      <Box
-        sx={{
-          p: 1.5,
-          borderBottom: 1,
-          borderColor: "divider",
-        }}
-      >
-        <Typography variant="h6">Chat</Typography>
-      </Box>
-
-      <ChatInput
+      {showContinue && (
+        <Typography
+          variant="body2"
+          color="warning.main"
+          sx={{
+            mb: 1,
+            p: 1,
+            bgcolor: "warning.light",
+            borderRadius: 1,
+          }}
+        >
+          Response was incomplete. Please continue the conversation.
+        </Typography>
+      )}
+      <TextField
+        fullWidth
         value={value}
         onChange={onChange}
-        onSubmit={onSubmit}
-        isStreaming={isStreaming}
+        disabled={isStreaming}
+        placeholder={isStreaming ? "Processing..." : "Type your message..."}
+        variant="outlined"
+        size="small"
       />
-    </Paper>
+    </Box>
   );
 };

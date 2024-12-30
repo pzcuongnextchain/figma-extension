@@ -8,6 +8,7 @@ export const FileList: React.FC<FileListProps> = ({
   files,
   selectedFile,
   onFileClick,
+  isFileUpdated,
 }) => {
   return (
     <Paper
@@ -43,6 +44,7 @@ export const FileList: React.FC<FileListProps> = ({
               node={createFileTree(files)}
               onFileClick={onFileClick}
               selectedPath={selectedFile?.fileName || null}
+              isFileUpdated={isFileUpdated}
             />
           </List>
         ) : (
