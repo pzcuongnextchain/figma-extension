@@ -2,7 +2,7 @@ import { Box, Grid } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { ChatBox } from "../components/Chat/ChatBox";
 import { SchemaEditor } from "../components/SchemaEditor/SchemaEditor";
-import { axiosInstance } from "../services/axiosConfig";
+import { PostService } from "../services/postService";
 import { SchemaData, SchemaViewer } from "./SchemaViewer";
 
 export const SchemaExplorer: React.FC = () => {
@@ -18,7 +18,7 @@ export const SchemaExplorer: React.FC = () => {
   useEffect(() => {
     if (generationId) {
       fetchSchemaData(generationId);
-    } 
+    }
   }, [generationId]);
 
   const handleJsonChange = (value: string) => {
@@ -46,38 +46,36 @@ export const SchemaExplorer: React.FC = () => {
   const fetchSchemaData = async (id: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(
-        `${axiosInstance.defaults.baseURL}/gemini/code-generation/${id}/schema`,
-      );
-
-      const reader = response.body!.getReader();
-      let accumulatedData = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = new TextDecoder().decode(value);
-        accumulatedData += chunk;
-
-        try {
-          // Try to parse accumulated data
-          const parsedData = JSON.parse(accumulatedData);
-
-          // Update schema data if it's a valid schema object
-          if (parsedData.tables && Array.isArray(parsedData.tables)) {
-            setSchemaData(parsedData);
-            setSchemaJson(JSON.stringify(parsedData, null, 2));
-          }
-        } catch (error) {
-          // If JSON parsing fails, continue accumulating data
-          continue;
-        }
-      }
+      const response = await PostService.getSchemaStream(id);
+      await processStreamResponse(response);
     } catch (error) {
       console.error("Error fetching schema data:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const processStreamResponse = async (response: Response) => {
+    const reader = response.body!.getReader();
+    let accumulatedData = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      const chunk = new TextDecoder().decode(value);
+      accumulatedData += chunk;
+
+      try {
+        const parsedData = JSON.parse(accumulatedData);
+        if (parsedData.tables && Array.isArray(parsedData.tables)) {
+          setSchemaData(parsedData);
+          setSchemaJson(JSON.stringify(parsedData, null, 2));
+        }
+      } catch (error) {
+        // If JSON parsing fails, continue accumulating data
+        continue;
+      }
     }
   };
 
@@ -87,42 +85,11 @@ export const SchemaExplorer: React.FC = () => {
 
     setIsStreaming(true);
     try {
-      const response = await fetch(
-        `${axiosInstance.defaults.baseURL}/gemini/code-generation/${generationId}/continue`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message: chatValue }),
-        },
+      const response = await PostService.continueSchemaGeneration(
+        generationId,
+        chatValue,
       );
-
-      const reader = response.body!.getReader();
-      let accumulatedData = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = new TextDecoder().decode(value);
-        accumulatedData += chunk;
-
-        try {
-          // Try to parse accumulated data
-          const parsedData = JSON.parse(accumulatedData);
-
-          // Update schema data if it's a valid schema object
-          if (parsedData.tables && Array.isArray(parsedData.tables)) {
-            setSchemaData(parsedData);
-            setSchemaJson(JSON.stringify(parsedData, null, 2));
-          }
-        } catch (error) {
-          // If JSON parsing fails, continue accumulating data
-          continue;
-        }
-      }
-
+      await processStreamResponse(response);
       setChatValue("");
     } catch (error) {
       console.error("Error in chat:", error);

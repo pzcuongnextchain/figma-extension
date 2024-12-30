@@ -104,40 +104,6 @@ export const CodeExplorer: React.FC = () => {
     setSelectedFile({ fileName, fileContent: content });
   };
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(event.target.value);
-  };
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!inputValue.trim() || isStreaming) return;
-
-    const userMessage = inputValue.trim();
-    setInputValue("");
-    setIsStreaming(true);
-
-    try {
-      const response = (await PostService.streamChatResponse(
-        userMessage,
-        generationId!,
-      )) as any;
-
-      const reader = response.body!.getReader();
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = new TextDecoder().decode(value);
-        console.log(chunk); // Handle the streaming response as needed
-      }
-    } catch (error) {
-      console.error("Error streaming chat response:", error);
-    } finally {
-      setIsStreaming(false);
-    }
-  };
-
   const processStreamResponse = async (response: Response) => {
     const reader = response.body!.getReader();
     let accumulatedData = "";
