@@ -20,6 +20,8 @@ export class ComponentAnalysisService extends BaseService {
           base64Image: frame.base64ImageWithoutMime,
         })) ?? [];
 
+      console.log("Analysis data:", analysisData);
+
       const response = await axiosInstance.post(
         "/gemini/component-analysis",
         analysisData,

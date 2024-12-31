@@ -1,3 +1,4 @@
+import CodeIcon from "@mui/icons-material/Code";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
@@ -7,6 +8,7 @@ import {
   Card,
   CardContent,
   IconButton,
+  Paper,
   Stack,
   TextField,
   Typography,
@@ -19,7 +21,6 @@ import type {
   ComponentProp,
   ExportData,
 } from "../types/common.type";
-import { ExportView } from "./ExportView";
 
 interface ComponentAnalysisProps {
   components: Array<{
@@ -27,22 +28,25 @@ interface ComponentAnalysisProps {
     frameName: string;
     analysis: ComponentAnalysisData[];
   }>;
-  exportData?: ExportData;
+  exportData: ExportData;
   frameImages?: Array<{
     id: string;
     name: string;
     base64: string;
     base64ImageWithoutMime: string;
   }>;
+  insight: string | null;
 }
 
 export function ComponentAnalysis({
   components: initialComponents,
   exportData,
   frameImages = [],
+  insight,
 }: ComponentAnalysisProps) {
   const [components, setComponents] = useState(initialComponents);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingInsight, setIsLoadingInsight] = useState(false);
   const [editingComponent, setEditingComponent] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -50,23 +54,6 @@ export function ComponentAnalysis({
     setComponents(initialComponents);
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [initialComponents]);
-
-  const handleAddComponent = () => {
-    setComponents((prev) => [
-      ...prev,
-      {
-        frameId: "new-frame",
-        frameName: "New Frame",
-        analysis: [
-          {
-            componentName: "New Component",
-            componentType: "Component",
-            componentProps: [],
-          },
-        ],
-      },
-    ]);
-  };
 
   const handleAddProp = (componentIndex: number) => {
     const newComponents = [...components];
@@ -130,8 +117,8 @@ export function ComponentAnalysis({
     setComponents(newComponents);
   };
 
-  const handleAnalyze = async () => {
-    if (!exportData) {
+  const handleViewCode = async () => {
+    if (!exportData || !insight) {
       console.error("Missing required data for analysis");
       return;
     }
@@ -142,6 +129,7 @@ export function ComponentAnalysis({
         components,
         exportData.documents,
         frameImages,
+        insight,
       );
       const id = data.response.id;
 
@@ -155,57 +143,73 @@ export function ComponentAnalysis({
     }
   };
 
-  const handleAnalyzeSchema = async () => {
-    if (!exportData) {
-      console.error("Missing required data for analysis");
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const data = await PostService.analyzeSchema(
-        components,
-        exportData.documents,
-        frameImages,
-      );
-      const id = data.response.id;
-
-      // Open in new tab instead of using PostService
-      const url = new URL("http://localhost:5173/schema-explorer");
-      url.searchParams.set("id", id);
-      window.open(url.toString(), "_blank");
-    } catch (error) {
-      console.error("Error analyzing schema:", error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   return (
     <Stack spacing={2}>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        paddingTop={2}
-      >
-        <Typography variant="h6" fontWeight="bold">
-          Component List
-        </Typography>
-      </Stack>
+      <Typography variant="h6" fontWeight="bold" paddingTop={2}>
+        Component List
+      </Typography>
 
-      <ExportView
-        frameImages={frameImages?.map((image) => ({
-          id: image.id,
-          name: image.name,
-          base64: image.base64,
-          base64ImageWithoutMime: image.base64ImageWithoutMime,
-        }))}
-        isLoading={isGenerating}
-        onExport={handleAnalyze}
-        onAnalyzeSchema={handleAnalyzeSchema}
-        disableAnalyzeSchema={!exportData}
-      />
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          width: "100%",
+          minHeight: "100px",
+          bgcolor: "background.default",
+        }}
+      >
+        <Stack spacing={2}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Component Insight
+          </Typography>
+          {insight ? (
+            <Typography
+              variant="body2"
+              sx={{ whiteSpace: "pre-line", textAlign: "left" }}
+            >
+              {insight}
+            </Typography>
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontStyle: "italic" }}
+            >
+              No insight available
+            </Typography>
+          )}
+        </Stack>
+      </Paper>
+
+      {frameImages.length > 0 && (
+        <Stack spacing={2}>
+          {frameImages.map((image) => (
+            <Box
+              key={image.id}
+              sx={{
+                width: "100%",
+                borderRadius: 1,
+                overflow: "hidden",
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ p: 1 }}>
+                {image.name}
+              </Typography>
+              <img
+                src={image.base64}
+                alt={`Frame preview: ${image.id}`}
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  display: "block",
+                }}
+              />
+            </Box>
+          ))}
+        </Stack>
+      )}
 
       {components.map((component, index) => (
         <Card key={component.frameId} sx={{ mb: 2 }}>
@@ -371,15 +375,16 @@ export function ComponentAnalysis({
         </Card>
       ))}
 
-      <Stack direction="row" spacing={2} justifyContent="center">
+      <Stack alignItems="center" paddingTop={2}>
         <Button
           variant="contained"
           color="primary"
-          onClick={handleAnalyze}
+          onClick={handleViewCode}
           disabled={isGenerating}
-          sx={{ mt: 2 }}
+          startIcon={<CodeIcon />}
+          sx={{ minWidth: 200 }}
         >
-          {isGenerating ? "Analyzing..." : "Generate Code"}
+          {isGenerating ? "Generating..." : "View Code"}
         </Button>
       </Stack>
 

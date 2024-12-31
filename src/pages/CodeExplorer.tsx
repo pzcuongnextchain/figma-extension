@@ -13,7 +13,6 @@ export const CodeExplorer: React.FC = () => {
   const [files, setFiles] = useState<FileContent[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileContent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [inputValue, setInputValue] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatValue, setChatValue] = useState("");
   const urlParams = new URLSearchParams(window.location.search);

@@ -18,19 +18,23 @@ export class PostService {
       name: string;
       base64ImageWithoutMime: string;
     }>,
+    insights?: string,
   ): Promise<ReadableStream> {
     try {
       const analysisData =
         frameImages?.map((frame) => ({
           components: exportData.components,
-          componentSets: exportData.componentSets,
+          // componentSets: exportData.componentSets,
           documents: exportData.documents.filter((doc) => doc.id === frame.id),
           base64Image: frame.base64ImageWithoutMime,
         })) ?? [];
 
       const response = await axiosInstance.post(
         "/gemini/component-analysis",
-        analysisData,
+        {
+          data: analysisData,
+          insights,
+        },
         {
           responseType: "stream",
         },
@@ -95,9 +99,9 @@ export class PostService {
     }>,
     documents: NodeData[],
     frameImages?: Array<{ id: string; base64ImageWithoutMime: string }>,
+    insights?: string,
   ): Promise<{ response: { id: string } }> {
     try {
-      // Transform and filter the data
       const payload = {
         data: components
           .map((component, index) => {
@@ -106,7 +110,6 @@ export class PostService {
             );
             const base64Image = frameImages?.[index]?.base64ImageWithoutMime;
 
-            // Only include entries that have both documents and base64Image
             if (frameDocuments.length > 0 && base64Image) {
               return {
                 documents: frameDocuments,
@@ -115,8 +118,9 @@ export class PostService {
             }
             return null;
           })
-          .filter(Boolean), // Remove null entries
+          .filter(Boolean),
         components: components.flatMap((component) => component.analysis),
+        insights,
       };
 
       const response = await axiosInstance.post(
@@ -266,6 +270,7 @@ export class PostService {
     }>,
     documents: NodeData[],
     frameImages?: Array<{ id: string; base64ImageWithoutMime: string }>,
+    insight?: string,
   ): Promise<{ response: { id: string } }> {
     try {
       const payload = {
@@ -286,6 +291,7 @@ export class PostService {
           })
           .filter(Boolean),
         components: components.flatMap((component) => component.analysis),
+        insight,
       };
 
       const response = await axiosInstance.post(
@@ -371,8 +377,6 @@ export class PostService {
         isSchema: true,
       };
 
-      console.log("Final payload:", payload);
-
       const response = await axiosInstance.post(
         "/gemini/code-generation/save",
         payload,
@@ -388,5 +392,44 @@ export class PostService {
     const url = new URL("http://localhost:5173/schema-explorer");
     url.searchParams.set("id", id);
     window.open(url.toString(), "_blank");
+  }
+
+  static async getComponentInsight(
+    exportData: ExportData,
+    frameImages?: Array<{
+      id: string;
+      name: string;
+      base64ImageWithoutMime: string;
+    }>,
+  ): Promise<string> {
+    try {
+      const analysisData =
+        frameImages?.map((frame) => ({
+          // components: exportData.components,
+          documents: exportData.documents.filter((doc) => doc.id === frame.id),
+          base64Image: frame.base64ImageWithoutMime,
+        })) ?? [];
+
+      const response = await fetch(
+        `${axiosInstance.defaults.baseURL}/gemini/code-generation/analyze`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ data: analysisData }),
+          signal: AbortSignal.timeout(60000),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.text();
+    } catch (error) {
+      console.error("Error getting component insight:", error);
+      throw error;
+    }
   }
 }

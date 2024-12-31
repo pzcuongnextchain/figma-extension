@@ -23,9 +23,6 @@ export function EmptyState({
         <Button variant="outlined" onClick={onSelectLayers}>
           Select layers to analyze
         </Button>
-        <Button variant="contained" onClick={onProcessAllLayers}>
-          Process Ready Components
-        </Button>
       </Stack>
       <Typography
         variant="body2"

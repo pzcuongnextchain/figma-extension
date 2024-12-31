@@ -23,7 +23,7 @@ figma.ui.onmessage = async (msg) => {
           try {
             const bytes = await node.exportAsync({
               format: "JPG",
-              constraint: { type: "SCALE", value: 2 },
+              constraint: { type: "SCALE", value: 1 },
             });
             return {
               id: node.id,
@@ -57,7 +57,7 @@ figma.ui.onmessage = async (msg) => {
           try {
             const bytes = await node.exportAsync({
               format: "JPG",
-              constraint: { type: "SCALE", value: 2 },
+              constraint: { type: "SCALE", value: 1 },
             });
             return {
               id: node.id,
@@ -104,7 +104,7 @@ figma.on("selectionchange", async () => {
           try {
             const bytes = await node.exportAsync({
               format: "PNG",
-              constraint: { type: "SCALE", value: 2 },
+              constraint: { type: "SCALE", value: 1 },
             });
             return {
               id: node.id,

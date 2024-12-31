@@ -13,6 +13,8 @@ import {
 
 function App() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingInsight, setIsLoadingInsight] = useState(false);
+  const [insight, setInsight] = useState<string | null>(null);
   const [hasSelectedFrames, setHasSelectedFrames] = useState(false);
   const [geminiResponse, setGeminiResponse] = useState<any[]>([]);
   const [exportData, setExportData] = useState<ExportData | null>(null);
@@ -24,16 +26,46 @@ function App() {
       base64ImageWithoutMime: string;
     }>
   >([]);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
-  const onExport = async () => {
+  const handleAnalyze = async () => {
     setIsLoading(true);
     try {
-      parent.postMessage(
-        { pluginMessage: { type: FIGMA_BUTTON_TYPE.EXPORT } },
-        "*",
+      const response = await PostService.componentAnalysis(
+        exportData!,
+        frameImages,
+        insight!,
       );
+
+      let accumulatedData = "";
+      for await (const chunk of response) {
+        const text = chunk;
+        accumulatedData += text;
+
+        try {
+          const parsedData = JSON.parse(accumulatedData);
+          if (Array.isArray(parsedData)) {
+            const transformedData = parsedData.map((frameAnalysis, index) => ({
+              frameId: frameImages[index]?.id || `frame-${index}`,
+              frameName: frameImages[index]?.name || `Frame ${index + 1}`,
+              analysis: Array.isArray(frameAnalysis)
+                ? frameAnalysis
+                : [frameAnalysis],
+            }));
+
+            console.log("Transformed data:", transformedData);
+            setGeminiResponse(transformedData);
+            setShowAnalysis(true);
+            accumulatedData = "";
+          }
+        } catch (e) {
+          console.error("Error parsing data:", e, accumulatedData);
+          continue;
+        }
+      }
     } catch (error) {
-      console.error("Error during export:", error);
+      console.error("Error during analysis:", error);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -89,6 +121,26 @@ function App() {
     }
   };
 
+  const handleGetInsight = async () => {
+    if (!exportData) {
+      console.error("Missing required data for insight");
+      return;
+    }
+
+    setIsLoadingInsight(true);
+    try {
+      const insightText = await PostService.getComponentInsight(
+        exportData,
+        frameImages,
+      );
+      setInsight(insightText);
+    } catch (error) {
+      console.error("Error getting insight:", error);
+    } finally {
+      setIsLoadingInsight(false);
+    }
+  };
+
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
       const pluginMessage = event.data.pluginMessage;
@@ -99,39 +151,6 @@ function App() {
           const imageData = pluginMessage.images;
           setExportData(parsedExportData);
           setFrameImages(imageData);
-
-          const response = await PostService.componentAnalysis(
-            parsedExportData,
-            imageData,
-          );
-
-          let accumulatedData = "";
-          for await (const chunk of response) {
-            const text = chunk;
-            accumulatedData += text;
-
-            try {
-              const parsedData = JSON.parse(accumulatedData);
-              if (Array.isArray(parsedData)) {
-                const transformedData = parsedData.map(
-                  (frameAnalysis, index) => ({
-                    frameId: imageData[index]?.id || `frame-${index}`,
-                    frameName: imageData[index]?.name || `Frame ${index + 1}`,
-                    analysis: Array.isArray(frameAnalysis)
-                      ? frameAnalysis
-                      : [frameAnalysis],
-                  }),
-                );
-
-                console.log("Transformed data:", transformedData);
-                setGeminiResponse(transformedData);
-                accumulatedData = "";
-              }
-            } catch (e) {
-              console.error("Error parsing data:", e, accumulatedData);
-              continue;
-            }
-          }
         } catch (error) {
           console.error("Error processing export data:", error);
         } finally {
@@ -141,6 +160,10 @@ function App() {
         setHasSelectedFrames(pluginMessage.hasSelection);
         if (pluginMessage.frameImages) {
           setFrameImages(pluginMessage.frameImages);
+          parent.postMessage(
+            { pluginMessage: { type: FIGMA_BUTTON_TYPE.EXPORT } },
+            "*",
+          );
         }
       }
     };
@@ -182,18 +205,24 @@ function App() {
           />
         ) : (
           <>
-            <ExportView
-              frameImages={frameImages}
-              isLoading={isLoading}
-              onExport={onExport}
-              onAnalyzeSchema={handleAnalyzeSchema}
-              disableAnalyzeSchema={frameImages.length === 0}
-            />
-            {geminiResponse.length > 0 && (
+            {!showAnalysis ? (
+              <ExportView
+                frameImages={frameImages}
+                isLoading={isLoading}
+                isLoadingInsight={isLoadingInsight}
+                insight={insight}
+                exportData={exportData}
+                onExport={handleAnalyze}
+                onGetInsight={handleGetInsight}
+                onAnalyzeSchema={handleAnalyzeSchema}
+                disableAnalyzeSchema={frameImages.length === 0}
+              />
+            ) : (
               <ComponentAnalysis
                 components={geminiResponse}
-                exportData={exportData ?? undefined}
+                exportData={exportData!}
                 frameImages={frameImages}
+                insight={insight}
               />
             )}
           </>

@@ -19,6 +19,7 @@ export class BaseService {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60000),
     });
   }
 }

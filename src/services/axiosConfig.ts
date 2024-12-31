@@ -12,6 +12,7 @@ class AxiosService {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
       },
+      timeout: 60000,
     });
 
     this.setupInterceptors();
