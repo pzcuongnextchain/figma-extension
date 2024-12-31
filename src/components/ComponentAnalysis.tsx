@@ -1,3 +1,4 @@
+import AddIcon from "@mui/icons-material/Add";
 import CodeIcon from "@mui/icons-material/Code";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -14,8 +15,8 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
+import { CodeGenerationService } from "../services/CodeGenerationService";
 
-import { PostService } from "../services/postService";
 import type {
   ComponentAnalysisData,
   ComponentProp,
@@ -46,7 +47,6 @@ export function ComponentAnalysis({
 }: ComponentAnalysisProps) {
   const [components, setComponents] = useState(initialComponents);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isLoadingInsight, setIsLoadingInsight] = useState(false);
   const [editingComponent, setEditingComponent] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -54,6 +54,21 @@ export function ComponentAnalysis({
     setComponents(initialComponents);
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [initialComponents]);
+
+  const handleAddComponent = () => {
+    const newComponent = {
+      frameId: `frame-${Date.now()}`,
+      frameName: "New Component",
+      analysis: [
+        {
+          componentName: "NewComponent",
+          componentType: "Component",
+          componentProps: [],
+        },
+      ],
+    };
+    setComponents([...components, newComponent]);
+  };
 
   const handleAddProp = (componentIndex: number) => {
     const newComponents = [...components];
@@ -95,11 +110,9 @@ export function ComponentAnalysis({
   ) => {
     const newComponents = [...components];
     if (field === "componentProps") {
-      // Handle componentProps field separately to maintain type safety
       newComponents[componentIndex].analysis[0].componentProps =
         JSON.parse(value);
     } else {
-      // For other string fields, assign directly
       newComponents[componentIndex].analysis[0][field] = value;
     }
     setComponents(newComponents);
@@ -125,17 +138,15 @@ export function ComponentAnalysis({
 
     setIsGenerating(true);
     try {
-      const data = await PostService.saveGenerationData(
+      const data = await CodeGenerationService.saveGenerationData(
         components,
         exportData.documents,
         frameImages,
         insight,
       );
-      const id = data.response.id;
 
-      const url = new URL("http://localhost:5173/code-explorer");
-      url.searchParams.set("id", id);
-      window.open(url.toString(), "_blank");
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      CodeGenerationService.openInExplorer(data.response.id);
     } catch (error) {
       console.error("Error preparing analysis:", error);
     } finally {
@@ -158,7 +169,7 @@ export function ComponentAnalysis({
           bgcolor: "background.default",
         }}
       >
-        <Stack spacing={2}>
+        <Stack spacing={2} sx={{ alignItems: "center" }}>
           <Typography variant="subtitle2" color="text.secondary">
             Component Insight
           </Typography>
@@ -180,36 +191,6 @@ export function ComponentAnalysis({
           )}
         </Stack>
       </Paper>
-
-      {frameImages.length > 0 && (
-        <Stack spacing={2}>
-          {frameImages.map((image) => (
-            <Box
-              key={image.id}
-              sx={{
-                width: "100%",
-                borderRadius: 1,
-                overflow: "hidden",
-                border: "1px solid",
-                borderColor: "divider",
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ p: 1 }}>
-                {image.name}
-              </Typography>
-              <img
-                src={image.base64}
-                alt={`Frame preview: ${image.id}`}
-                style={{
-                  width: "100%",
-                  height: "auto",
-                  display: "block",
-                }}
-              />
-            </Box>
-          ))}
-        </Stack>
-      )}
 
       {components.map((component, index) => (
         <Card key={component.frameId} sx={{ mb: 2 }}>
@@ -375,7 +356,14 @@ export function ComponentAnalysis({
         </Card>
       ))}
 
-      <Stack alignItems="center" paddingTop={2}>
+      <Stack direction="row" spacing={2} justifyContent="center">
+        <Button
+          variant="outlined"
+          startIcon={<AddIcon />}
+          onClick={handleAddComponent}
+        >
+          Add Component
+        </Button>
         <Button
           variant="contained"
           color="primary"

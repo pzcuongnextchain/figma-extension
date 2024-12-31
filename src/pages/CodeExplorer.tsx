@@ -6,7 +6,7 @@ import { ChatBox } from "../components/Chat/ChatBox";
 import { FileList } from "../components/FileTree/FileList";
 import { getLanguage } from "../components/FileTree/utils";
 import { FileViewer } from "../components/FileViewer/FileViewer";
-import { PostService } from "../services/postService";
+import { CodeExplorerService } from "../services/CodeExplorerService";
 import { FileContent } from "../types/explorer";
 
 export const CodeExplorer: React.FC = () => {
@@ -69,7 +69,7 @@ export const CodeExplorer: React.FC = () => {
       if (generationId) {
         try {
           setIsLoading(true);
-          const response = await PostService.getGenerationStream(
+          const response = await CodeExplorerService.getGenerationStream(
             generationId,
             abortController.signal,
           );
@@ -226,7 +226,7 @@ export const CodeExplorer: React.FC = () => {
     setIsIncompleteResponse(false);
 
     try {
-      const response = await PostService.streamChatResponse(
+      const response = await CodeExplorerService.streamChatResponse(
         chatValue,
         generationId,
       );

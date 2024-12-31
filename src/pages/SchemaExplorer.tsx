@@ -2,7 +2,7 @@ import { Box, Grid } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { ChatBox } from "../components/Chat/ChatBox";
 import { SchemaEditor } from "../components/SchemaEditor/SchemaEditor";
-import { PostService } from "../services/postService";
+import { SchemaService } from "../services/SchemaService";
 import { SchemaData, SchemaViewer } from "./SchemaViewer";
 
 export const SchemaExplorer: React.FC = () => {
@@ -46,7 +46,7 @@ export const SchemaExplorer: React.FC = () => {
   const fetchSchemaData = async (id: string) => {
     setIsLoading(true);
     try {
-      const response = await PostService.getSchemaStream(id);
+      const response = await SchemaService.getSchemaStream(id);
       await processStreamResponse(response);
     } catch (error) {
       console.error("Error fetching schema data:", error);
@@ -85,7 +85,7 @@ export const SchemaExplorer: React.FC = () => {
 
     setIsStreaming(true);
     try {
-      const response = await PostService.continueSchemaGeneration(
+      const response = await SchemaService.continueSchemaGeneration(
         generationId,
         chatValue,
       );

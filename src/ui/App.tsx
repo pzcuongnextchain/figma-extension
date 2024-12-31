@@ -1,10 +1,10 @@
 import { Container, Stack } from "@mui/material";
 import { useEffect, useState } from "react";
 
-import { ComponentAnalysis } from "../components/ComponentAnalysis";
 import { EmptyState } from "../components/EmptyState";
 import { ExportView } from "../components/ExportView";
-import { PostService } from "../services/postService";
+import { ComponentAnalysisService } from "../services/ComponentAnalysisService";
+import { SchemaAnalysisService } from "../services/SchemaAnalysisService";
 import {
   ExportData,
   FIGMA_BUTTON_TYPE,
@@ -26,21 +26,22 @@ function App() {
       base64ImageWithoutMime: string;
     }>
   >([]);
-  const [showAnalysis, setShowAnalysis] = useState(false);
 
   const handleAnalyze = async () => {
     setIsLoading(true);
     try {
-      const response = await PostService.componentAnalysis(
+      const response = await ComponentAnalysisService.analyze(
         exportData!,
         frameImages,
         insight!,
       );
 
       let accumulatedData = "";
-      for await (const chunk of response) {
-        const text = chunk;
-        accumulatedData += text;
+      const reader = response.body!.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulatedData += new TextDecoder().decode(value, { stream: true });
 
         try {
           const parsedData = JSON.parse(accumulatedData);
@@ -53,9 +54,7 @@ function App() {
                 : [frameAnalysis],
             }));
 
-            console.log("Transformed data:", transformedData);
             setGeminiResponse(transformedData);
-            setShowAnalysis(true);
             accumulatedData = "";
           }
         } catch (e) {
@@ -108,12 +107,13 @@ function App() {
       const { data: exportDataString, images } = await waitForExportData;
       const parsedExportData = JSON.parse(exportDataString);
 
-      const data = await PostService.saveSchemaAnalysisData(
+      const data = await SchemaAnalysisService.saveAnalysisData(
         images,
         parsedExportData as { documents: { id: string }[] },
       );
 
-      PostService.openSchemaExplorerInNewTab(data.response.id);
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      SchemaAnalysisService.openInExplorer(data.response.id);
     } catch (error) {
       console.error("Error analyzing schema:", error);
     } finally {
@@ -129,11 +129,20 @@ function App() {
 
     setIsLoadingInsight(true);
     try {
-      const insightText = await PostService.getComponentInsight(
+      const response = await ComponentAnalysisService.getInsight(
         exportData,
         frameImages,
       );
-      setInsight(insightText);
+
+      setInsight("");
+      const reader = response.body!.getReader();
+      let accumulatedData = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulatedData += new TextDecoder().decode(value, { stream: true });
+        setInsight(accumulatedData);
+      }
     } catch (error) {
       console.error("Error getting insight:", error);
     } finally {
@@ -169,7 +178,6 @@ function App() {
     };
 
     window.addEventListener("message", handleMessage);
-
     parent.postMessage(
       { pluginMessage: { type: FIGMA_BUTTON_TYPE.CHECK_SELECTION } },
       "*",
@@ -204,28 +212,18 @@ function App() {
             onProcessAllLayers={handleProcessAllLayers}
           />
         ) : (
-          <>
-            {!showAnalysis ? (
-              <ExportView
-                frameImages={frameImages}
-                isLoading={isLoading}
-                isLoadingInsight={isLoadingInsight}
-                insight={insight}
-                exportData={exportData}
-                onExport={handleAnalyze}
-                onGetInsight={handleGetInsight}
-                onAnalyzeSchema={handleAnalyzeSchema}
-                disableAnalyzeSchema={frameImages.length === 0}
-              />
-            ) : (
-              <ComponentAnalysis
-                components={geminiResponse}
-                exportData={exportData!}
-                frameImages={frameImages}
-                insight={insight}
-              />
-            )}
-          </>
+          <ExportView
+            frameImages={frameImages}
+            isLoading={isLoading}
+            isLoadingInsight={isLoadingInsight}
+            insight={insight}
+            exportData={exportData}
+            geminiResponse={geminiResponse}
+            onExport={handleAnalyze}
+            onGetInsight={handleGetInsight}
+            onAnalyzeSchema={handleAnalyzeSchema}
+            disableAnalyzeSchema={frameImages.length === 0}
+          />
         )}
       </Stack>
     </Container>

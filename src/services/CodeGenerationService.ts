@@ -1,53 +1,41 @@
-import type { ExportData } from "../types/common.type";
-import { axiosInstance } from "./axiosConfig";
+import _ from "lodash";
+import { ComponentAnalysisData } from "../types/common.type";
 import { BaseService } from "./base/BaseService";
 
-interface GeminiResponse {
-  success: boolean;
-  response: any;
+interface GenerationResponse {
+  response: { id: string };
 }
 
 export class CodeGenerationService extends BaseService {
-  static async generate(
-    components: any[],
-    exportData: ExportData,
-    base64Image: string,
-  ): Promise<GeminiResponse> {
-    try {
-      const response = await axiosInstance.post<GeminiResponse>(
-        "/gemini/code-generation",
-        {
-          components,
-          documents: exportData.documents,
-          base64Image,
-        },
-      );
-      return response.data;
-    } catch (error) {
-      console.error("Error generating code:", error);
-      throw error;
-    }
-  }
-
-  static async getStream(generationId: string, signal?: AbortSignal) {
-    return this.fetchStream(`/gemini/code-generation/${generationId}`, {
-      signal,
+  static async saveGenerationData(
+    components: Array<{
+      frameId: string;
+      frameName: string;
+      analysis: ComponentAnalysisData[];
+    }>,
+    documents: { id: string }[],
+    frameImages: Array<{ id: string; base64ImageWithoutMime: string }>,
+    insights: string,
+  ): Promise<GenerationResponse> {
+    const componentAnalysis = _.flatMap(components, (component) =>
+      component.analysis.map((analysis) => ({
+        ...analysis,
+      })),
+    );
+    const documentsWithImages = documents.map((documents) => ({
+      documents,
+      base64Image: frameImages.find((image) => image.id === documents.id)
+        ?.base64ImageWithoutMime,
+    }));
+    return this.post<GenerationResponse>("/code-generation/save", {
+      components: componentAnalysis,
+      data: documentsWithImages,
+      insights,
     });
   }
 
-  static async continue(
-    generationId: string,
-    message: string,
-  ): Promise<Response> {
-    if (!generationId) throw new Error("Generation ID is required");
-
-    return this.postStream(`/gemini/code-generation/${generationId}/continue`, {
-      message,
-    });
-  }
-
-  static openInNewTab(id: string) {
-    const url = new URL("http://localhost:5173/code-explorer");
+  static openInExplorer(id: string): void {
+    const url = new URL(this.CODE_EXPLORER_URL);
     url.searchParams.set("id", id);
     window.open(url.toString(), "_blank");
   }

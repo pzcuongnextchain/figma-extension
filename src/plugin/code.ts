@@ -7,7 +7,7 @@ import {
 } from "../types/common.type";
 import { processComponents } from "./utils/nodeProcessor";
 figma.showUI(__html__, {
-  width: 450,
+  width: 500,
   height: 700,
   themeColors: true,
 });

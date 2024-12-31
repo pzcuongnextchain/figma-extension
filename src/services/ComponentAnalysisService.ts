@@ -1,36 +1,41 @@
-import type { ExportData } from "../types/common.type";
-import { axiosInstance } from "./axiosConfig";
+import { ExportData } from "../types/common.type";
 import { BaseService } from "./base/BaseService";
 
 export class ComponentAnalysisService extends BaseService {
+  static normalizePayload(
+    exportData: ExportData,
+    frameImages: Array<{ id: string; base64ImageWithoutMime: string }>,
+    insight?: string,
+  ) {
+    const payload = exportData.documents.map((documents) => ({
+      documents,
+      base64Image: frameImages.find((image) => image.id === documents.id)
+        ?.base64ImageWithoutMime,
+    }));
+    return {
+      data: payload,
+      insight,
+    };
+  }
+
   static async analyze(
     exportData: ExportData,
-    frameImages?: Array<{
-      id: string;
-      name: string;
-      base64ImageWithoutMime: string;
-    }>,
-  ): Promise<ReadableStream> {
-    try {
-      const analysisData =
-        frameImages?.map((frame) => ({
-          components: exportData.components,
-          componentSets: exportData.componentSets,
-          documents: exportData.documents.filter((doc) => doc.id === frame.id),
-          base64Image: frame.base64ImageWithoutMime,
-        })) ?? [];
+    frameImages: Array<{ id: string; base64ImageWithoutMime: string }>,
+    insight: string,
+  ): Promise<Response> {
+    return this.postStream(
+      "/component-analysis",
+      this.normalizePayload(exportData, frameImages, insight),
+    );
+  }
 
-      console.log("Analysis data:", analysisData);
-
-      const response = await axiosInstance.post(
-        "/gemini/component-analysis",
-        analysisData,
-        { responseType: "stream" },
-      );
-      return response.data;
-    } catch (error) {
-      console.error("Error analyzing components:", error);
-      throw error;
-    }
+  static async getInsight(
+    exportData: ExportData,
+    frameImages: Array<{ id: string; base64ImageWithoutMime: string }>,
+  ): Promise<Response> {
+    return this.postStream(
+      "/code-generation/analyze",
+      this.normalizePayload(exportData, frameImages),
+    );
   }
 }
