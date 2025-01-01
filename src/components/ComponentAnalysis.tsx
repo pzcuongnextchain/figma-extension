@@ -9,7 +9,6 @@ import {
   Card,
   CardContent,
   IconButton,
-  Paper,
   Stack,
   TextField,
   Typography,
@@ -159,38 +158,6 @@ export function ComponentAnalysis({
       <Typography variant="h6" fontWeight="bold" paddingTop={2}>
         Component List
       </Typography>
-
-      <Paper
-        variant="outlined"
-        sx={{
-          p: 2,
-          width: "100%",
-          minHeight: "100px",
-          bgcolor: "background.default",
-        }}
-      >
-        <Stack spacing={2} sx={{ alignItems: "center" }}>
-          <Typography variant="subtitle2" color="text.secondary">
-            Component Insight
-          </Typography>
-          {insight ? (
-            <Typography
-              variant="body2"
-              sx={{ whiteSpace: "pre-line", textAlign: "left" }}
-            >
-              {insight}
-            </Typography>
-          ) : (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ fontStyle: "italic" }}
-            >
-              No insight available
-            </Typography>
-          )}
-        </Stack>
-      </Paper>
 
       {components.map((component, index) => (
         <Card key={component.frameId} sx={{ mb: 2 }}>

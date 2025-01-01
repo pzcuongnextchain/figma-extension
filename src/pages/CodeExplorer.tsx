@@ -13,14 +13,14 @@ export const CodeExplorer: React.FC = () => {
   const [files, setFiles] = useState<FileContent[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileContent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(true);
   const [chatValue, setChatValue] = useState("");
   const urlParams = new URLSearchParams(window.location.search);
   const generationId = urlParams.get("id");
   const [updatedFiles, setUpdatedFiles] = useState<Set<string>>(new Set());
   const updateTimeoutRef = useRef<NodeJS.Timeout>();
   const [isIncompleteResponse, setIsIncompleteResponse] = useState(false);
-
+  const [uncompleteContent, setUncompleteContent] = useState("");
   const updateFile = (fileName: string, content: string) => {
     console.log("Updating file:", fileName);
     setFiles((prevFiles) => {
@@ -32,17 +32,6 @@ export const CodeExplorer: React.FC = () => {
         console.log("Updating existing file:", fileName);
         if (prevFiles[fileIndex].fileContent !== content) {
           setUpdatedFiles((prev) => new Set(prev).add(fileName));
-
-          if (updateTimeoutRef.current) {
-            clearTimeout(updateTimeoutRef.current);
-          }
-          updateTimeoutRef.current = window.setTimeout(() => {
-            setUpdatedFiles((prev) => {
-              const newSet = new Set(prev);
-              newSet.delete(fileName);
-              return newSet;
-            });
-          }, 3000) as any;
         }
 
         const newFiles = [...prevFiles];
@@ -76,7 +65,7 @@ export const CodeExplorer: React.FC = () => {
 
           await processStreamResponse(response);
         } catch (error) {
-          console.error("Error fetching data:", error);
+          alert("Occured an error while getting generation. Please try again.");
           setIsIncompleteResponse(true);
         } finally {
           setIsLoading(false);
@@ -113,7 +102,6 @@ export const CodeExplorer: React.FC = () => {
       while (true) {
         const { value, done } = await reader.read();
         const chunk = new TextDecoder().decode(value);
-        console.log("Received chunk:", chunk);
         accumulatedData += chunk;
 
         // Check for incomplete JSON content
@@ -122,34 +110,64 @@ export const CodeExplorer: React.FC = () => {
           accumulatedData,
         );
 
-        console.log("Accumulated data:", accumulatedData);
-        console.log("Has complete file content:", hasQuoteAfterFileContent);
-
         // If we have fileContent but it's not properly closed with quotes
         if (isFileContentStart && !hasQuoteAfterFileContent) {
-          console.log("Detected incomplete file content");
           setIsIncompleteResponse(true);
+          // Extract only the last incomplete part
+          const fileContentIndex =
+            accumulatedData.lastIndexOf('"fileContent":');
+          if (fileContentIndex !== -1) {
+            const incompleteContent = accumulatedData
+              .slice(fileContentIndex)
+              .replace('"fileContent":', "")
+              .replace(/^[\s"]+/, "")
+              .trim();
+            console.log("Streaming incomplete content:", incompleteContent);
+            setUncompleteContent(incompleteContent);
+          }
         }
 
         if (done) {
-          // Additional check for incomplete JSON at the end
+          setIsStreaming(false);
           try {
             JSON.parse(accumulatedData);
-            if (
-              !accumulatedData.endsWith("}") &&
-              !accumulatedData.endsWith('"}')
-            ) {
+            if (!accumulatedData.endsWith("]")) {
               console.log("JSON does not end properly");
               setIsIncompleteResponse(true);
+              // Extract only the last incomplete part
+              const fileContentIndex =
+                accumulatedData.lastIndexOf('"fileContent":');
+              if (fileContentIndex !== -1) {
+                const incompleteContent = accumulatedData
+                  .slice(fileContentIndex)
+                  .replace('"fileContent":', "")
+                  .replace(/^[\s"]+/, "")
+                  .trim();
+                console.log("Done - incomplete content:", incompleteContent);
+                setUncompleteContent(incompleteContent);
+              }
+            } else {
+              setIsIncompleteResponse(false);
             }
           } catch (e) {
             console.log("Failed to parse final JSON:", e);
             setIsIncompleteResponse(true);
+            // Extract only the last incomplete part
+            const fileContentIndex =
+              accumulatedData.lastIndexOf('"fileContent":');
+            if (fileContentIndex !== -1) {
+              const incompleteContent = accumulatedData
+                .slice(fileContentIndex)
+                .replace('"fileContent":', "")
+                .replace(/^[\s"]+/, "")
+                .trim();
+              console.log("Error - incomplete content:", incompleteContent);
+              setUncompleteContent(incompleteContent);
+            }
           }
           break;
         }
 
-        // Rest of your existing code for processing matches...
         const fileEntryRegex =
           /"(fileName|fileContent)"\s*:\s*"((?:[^"\\]|\\.)*?)"/g;
         let match;
@@ -194,6 +212,8 @@ export const CodeExplorer: React.FC = () => {
               if (nextFileNameMatch) {
                 const fileName = nextFileNameMatch[1];
                 pendingContents[fileName] = currentContent;
+              } else {
+                setUncompleteContent(currentContent);
               }
             }
           }
@@ -309,7 +329,7 @@ export const CodeExplorer: React.FC = () => {
           onChange={(e) => setChatValue(e.target.value)}
           onSubmit={handleChatSubmit}
           isStreaming={isStreaming}
-          showContinue={isIncompleteResponse}
+          showContinue={!isStreaming && isIncompleteResponse}
         />
       </Grid>
 
