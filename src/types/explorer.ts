@@ -46,6 +46,7 @@ export interface ChatBoxProps {
   value: string;
   isStreaming: boolean;
   showContinue?: boolean;
+  uncompleteContent?: string;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onSubmit: (event: React.FormEvent) => void;
+  onSubmit: (event: React.FormEvent, message?: string) => void;
 }

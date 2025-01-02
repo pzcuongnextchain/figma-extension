@@ -66,6 +66,8 @@ export const SchemaExplorer: React.FC = () => {
       const chunk = new TextDecoder().decode(value);
       accumulatedData += chunk;
 
+      console.log(accumulatedData);
+
       try {
         const parsedData = JSON.parse(accumulatedData);
         if (parsedData.tables && Array.isArray(parsedData.tables)) {

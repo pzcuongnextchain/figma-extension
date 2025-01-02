@@ -103,6 +103,7 @@ export const CodeExplorer: React.FC = () => {
         const { value, done } = await reader.read();
         const chunk = new TextDecoder().decode(value);
         accumulatedData += chunk;
+        console.log(accumulatedData);
 
         // Check for incomplete JSON content
         const isFileContentStart = accumulatedData.includes('"fileContent":');
@@ -233,9 +234,15 @@ export const CodeExplorer: React.FC = () => {
     }
   };
 
-  const handleChatSubmit = async (event: React.FormEvent) => {
+  const handleChatSubmit = async (event: React.FormEvent, message?: string) => {
     event.preventDefault();
-    if (!chatValue.trim() || !generationId) return;
+    console.log("handleChatSubmit called with message:", message);
+    console.log("Current chatValue:", chatValue);
+
+    if ((!chatValue.trim() && !message) || !generationId) {
+      console.log("Returning early due to empty message or no generationId");
+      return;
+    }
 
     setUpdatedFiles(new Set());
     if (updateTimeoutRef.current) {
@@ -246,8 +253,10 @@ export const CodeExplorer: React.FC = () => {
     setIsIncompleteResponse(false);
 
     try {
+      const messageToSend = message || chatValue;
+      console.log("Sending message:", messageToSend);
       const response = await CodeExplorerService.streamChatResponse(
-        chatValue,
+        messageToSend,
         generationId,
       );
       await processStreamResponse(response);
@@ -330,6 +339,7 @@ export const CodeExplorer: React.FC = () => {
           onSubmit={handleChatSubmit}
           isStreaming={isStreaming}
           showContinue={!isStreaming && isIncompleteResponse}
+          uncompleteContent={uncompleteContent}
         />
       </Grid>
 

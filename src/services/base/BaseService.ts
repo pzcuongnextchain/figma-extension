@@ -1,9 +1,34 @@
+export type AIModel = "openai" | "gemini";
+
 export abstract class BaseService {
-  protected static readonly API_BASE_URL = "http://localhost:8080/gemini";
+  private static currentModel: AIModel = "openai";
+
+  protected static get API_BASE_URL(): string {
+    return `http://localhost:8080/${this.currentModel}`;
+  }
+
   protected static readonly CODE_EXPLORER_URL =
     "http://localhost:5173/code-explorer";
   protected static readonly SCHEMA_EXPLORER_URL =
     "http://localhost:5173/schema-explorer";
+
+  public static setModel(model: AIModel) {
+    this.currentModel = model;
+    try {
+      localStorage.setItem("aiModel", model);
+    } catch (error) {
+      console.warn("LocalStorage is not available:", error);
+    }
+  }
+
+  public static getModel(): AIModel {
+    try {
+      return (localStorage.getItem("aiModel") as AIModel) || "openai";
+    } catch (error) {
+      console.warn("LocalStorage is not available:", error);
+      return "openai";
+    }
+  }
 
   protected static async post<T>(
     endpoint: string,
