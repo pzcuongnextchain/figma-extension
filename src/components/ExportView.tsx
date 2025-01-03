@@ -3,7 +3,7 @@ import SchemaIcon from "@mui/icons-material/Schema";
 import SmartButtonIcon from "@mui/icons-material/SmartButton";
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
-import { ComponentAnalysisData, ExportData } from "../types/common.type";
+import { ComponentAnalysisData, FrameExportData } from "../types/common.type";
 import { ComponentAnalysis } from "./ComponentAnalysis";
 
 interface ExportViewProps {
@@ -16,7 +16,7 @@ interface ExportViewProps {
   isLoading: boolean;
   isLoadingInsight: boolean;
   insight: string | null;
-  exportData: ExportData | null;
+  exportData: FrameExportData | null;
   geminiResponse: Array<{
     frameId: string;
     frameName: string;

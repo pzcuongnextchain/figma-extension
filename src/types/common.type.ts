@@ -34,7 +34,7 @@ export interface Override {
 }
 
 export interface NodeData {
-  id: string;
+  id: string | number;
   name: string;
   type: string;
   scrollBehavior?: string;
@@ -54,10 +54,14 @@ export interface NodeData {
   interactions?: any[];
 }
 
+export interface FrameExportData {
+  frameData: ExportData;
+  base64Image?: string;
+}
 export interface ExportData {
   components: { [key: string]: ComponentData };
   componentSets: { [key: string]: ComponentSetData };
-  documents: NodeData[];
+  document: { [key: string]: NodeData };
 }
 
 export interface ComponentProp {

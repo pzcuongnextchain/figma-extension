@@ -1,11 +1,8 @@
-import { processComponentSets } from "./utils/nodeProcessor";
-
 import {
-  ExportData,
   FIGMA_BUTTON_TYPE,
   FIGMA_MESSAGE_TYPE,
+  FrameExportData,
 } from "../types/common.type";
-import { processComponents } from "./utils/nodeProcessor";
 figma.showUI(__html__, {
   width: 500,
   height: 700,
@@ -142,17 +139,29 @@ figma.on("selectionchange", async () => {
 
 async function processSelectedNodes(
   selection: readonly SceneNode[],
-): Promise<ExportData> {
-  const data: ExportData = {
-    components: await processComponents(),
-    componentSets: await processComponentSets(),
-    documents: [],
-  };
+): Promise<FrameExportData[]> {
+  let data: FrameExportData[] = [];
 
   if (selection.length > 0) {
-    selection.forEach((node) => {
+    selection.forEach(async (node) => {
       if (node.type === "FRAME") {
-        data.documents.push(processNode(node));
+        const json = (await node.exportAsync({
+          format: "JSON_REST_V1",
+        })) as { components: any; componentSets: any; document: any };
+        const bytes = await node.exportAsync({
+          format: "PNG",
+          constraint: { type: "SCALE", value: 1 },
+        });
+        const base64Image = figma.base64Encode(bytes);
+        const { components, componentSets, document } = json;
+        data.push({
+          frameData: {
+            components,
+            componentSets,
+            document,
+          },
+          base64Image,
+        });
       }
     });
   } else {

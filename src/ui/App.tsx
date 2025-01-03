@@ -6,9 +6,9 @@ import { ExportView } from "../components/ExportView";
 import { ComponentAnalysisService } from "../services/ComponentAnalysisService";
 import { SchemaAnalysisService } from "../services/SchemaAnalysisService";
 import {
-  ExportData,
   FIGMA_BUTTON_TYPE,
   FIGMA_MESSAGE_TYPE,
+  FrameExportData,
 } from "../types/common.type";
 
 function App() {
@@ -17,7 +17,7 @@ function App() {
   const [insight, setInsight] = useState<string | null>(null);
   const [hasSelectedFrames, setHasSelectedFrames] = useState(false);
   const [geminiResponse, setGeminiResponse] = useState<any[]>([]);
-  const [exportData, setExportData] = useState<ExportData | null>(null);
+  const [exportData, setExportData] = useState<FrameExportData | null>(null);
   const [frameImages, setFrameImages] = useState<
     Array<{
       id: string;
@@ -32,7 +32,6 @@ function App() {
     try {
       const response = await ComponentAnalysisService.analyze(
         exportData!,
-        frameImages,
         insight!,
       );
 
@@ -129,11 +128,7 @@ function App() {
 
     setIsLoadingInsight(true);
     try {
-      const response = await ComponentAnalysisService.getInsight(
-        exportData,
-        frameImages,
-      );
-
+      const response = await ComponentAnalysisService.getInsight(exportData);
       setInsight("");
       const reader = response.body!.getReader();
       let accumulatedData = "";
@@ -156,7 +151,9 @@ function App() {
 
       if (pluginMessage?.type === FIGMA_MESSAGE_TYPE.EXPORT_DATA) {
         try {
-          const parsedExportData = JSON.parse(pluginMessage.data);
+          const parsedExportData = JSON.parse(
+            pluginMessage.data,
+          ) as FrameExportData;
           const imageData = pluginMessage.images;
           setExportData(parsedExportData);
           setFrameImages(imageData);

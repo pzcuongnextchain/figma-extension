@@ -1,5 +1,4 @@
-import _ from "lodash";
-import { ComponentAnalysisData } from "../types/common.type";
+import { ComponentAnalysisData, FrameExportData } from "../types/common.type";
 import { BaseService } from "./base/BaseService";
 
 interface GenerationResponse {
@@ -8,28 +7,13 @@ interface GenerationResponse {
 
 export class CodeGenerationService extends BaseService {
   static async saveGenerationData(
-    components: Array<{
-      frameId: string;
-      frameName: string;
-      analysis: ComponentAnalysisData[];
-    }>,
-    documents: { id: string }[],
-    frameImages: Array<{ id: string; base64ImageWithoutMime: string }>,
+    frameExportData: FrameExportData,
+    analyzedComponents: ComponentAnalysisData[],
     insights: string,
   ): Promise<GenerationResponse> {
-    const componentAnalysis = _.flatMap(components, (component) =>
-      component.analysis.map((analysis) => ({
-        ...analysis,
-      })),
-    );
-    const documentsWithImages = documents.map((documents) => ({
-      documents,
-      base64Image: frameImages.find((image) => image.id === documents.id)
-        ?.base64ImageWithoutMime,
-    }));
     return this.post<GenerationResponse>("/code-generation/save", {
-      components: componentAnalysis,
-      data: documentsWithImages,
+      components: analyzedComponents,
+      data: frameExportData,
       insights,
     });
   }

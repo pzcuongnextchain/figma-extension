@@ -2,6 +2,8 @@ import { Box, Grid } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { ChatBox } from "../components/Chat/ChatBox";
 import { SchemaEditor } from "../components/SchemaEditor/SchemaEditor";
+import { BaseService } from "../services";
+import { AIModel } from "../services/base/BaseService";
 import { SchemaService } from "../services/SchemaService";
 import { SchemaData, SchemaViewer } from "./SchemaViewer";
 
@@ -44,6 +46,9 @@ export const SchemaExplorer: React.FC = () => {
   };
 
   const fetchSchemaData = async (id: string) => {
+    const model = urlParams.get("model");
+    BaseService.setModel(model as AIModel);
+
     setIsLoading(true);
     try {
       const response = await SchemaService.getSchemaStream(id);
