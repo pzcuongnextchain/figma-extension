@@ -1,5 +1,4 @@
 import LightbulbIcon from "@mui/icons-material/Lightbulb";
-import SchemaIcon from "@mui/icons-material/Schema";
 import SmartButtonIcon from "@mui/icons-material/SmartButton";
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
@@ -15,7 +14,7 @@ interface ExportViewProps {
   }>;
   isLoading: boolean;
   isLoadingInsight: boolean;
-  insight: string | null;
+  insight: { analyzedData: string; base64Image: string }[];
   exportData: FrameExportData | null;
   geminiResponse: Array<{
     frameId: string;
@@ -52,7 +51,7 @@ export function ExportView({
       </Typography>
 
       {frameImages.length > 0 && (
-        <Stack spacing={2} sx={{ alignItems: "center" }}>
+        <Stack spacing={2} sx={{ alignItems: "center", width: "100%" }}>
           {frameImages.map((image) => (
             <Box
               key={image.id}
@@ -97,12 +96,12 @@ export function ExportView({
           <Typography variant="subtitle2" color="text.secondary">
             Component Insight
           </Typography>
-          {insight ? (
+          {insight.length ? (
             <Typography
               variant="body2"
               sx={{ whiteSpace: "pre-line", textAlign: "left" }}
             >
-              {insight}
+              {insight.map((item) => item.analyzedData)}
             </Typography>
           ) : (
             <Typography
@@ -121,6 +120,7 @@ export function ExportView({
         spacing={2}
         justifyContent="center"
         sx={{ paddingBottom: 2 }}
+        width="100%"
       >
         <Button
           variant="contained"
@@ -140,7 +140,7 @@ export function ExportView({
         >
           {isLoading ? "Extracting..." : "Extract Components"}
         </Button>
-        <Button
+        {/* <Button
           variant="contained"
           color="secondary"
           onClick={onAnalyzeSchema}
@@ -148,7 +148,7 @@ export function ExportView({
           startIcon={<SchemaIcon />}
         >
           {isLoading ? "Extracting..." : "Extract Schema"}
-        </Button>
+        </Button> */}
       </Stack>
 
       {components.length > 0 && (

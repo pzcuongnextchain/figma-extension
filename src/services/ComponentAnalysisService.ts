@@ -4,16 +4,19 @@ import { BaseService } from "./base/BaseService";
 export class ComponentAnalysisService extends BaseService {
   static async analyze(
     exportData: FrameExportData,
-    insight: string,
+    // insight: string,
   ): Promise<Response> {
     return this.postStream("/component-analysis", {
       data: exportData,
-      insight,
+      // insight,
     });
   }
 
-  static async getInsight(exportData: FrameExportData): Promise<Response> {
-    return this.postStream("/code-generation/analyze", {
+  static async getInsight(exportData: FrameExportData) {
+    // return this.postStream("/code-generation/analyze", {
+    //   data: exportData,
+    // });
+    return await this.post("/code-generation/analyze", {
       data: exportData,
     });
   }

@@ -14,7 +14,12 @@ import {
 function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingInsight, setIsLoadingInsight] = useState(false);
-  const [insight, setInsight] = useState<string | null>(null);
+  const [insight, setInsight] = useState<
+    {
+      analyzedData: string;
+      base64Image: string;
+    }[]
+  >([]);
   const [hasSelectedFrames, setHasSelectedFrames] = useState(false);
   const [geminiResponse, setGeminiResponse] = useState<any[]>([]);
   const [exportData, setExportData] = useState<FrameExportData | null>(null);
@@ -32,7 +37,7 @@ function App() {
     try {
       const response = await ComponentAnalysisService.analyze(
         exportData!,
-        insight!,
+        // insight!,
       );
 
       let accumulatedData = "";
@@ -128,16 +133,19 @@ function App() {
 
     setIsLoadingInsight(true);
     try {
-      const response = await ComponentAnalysisService.getInsight(exportData);
-      setInsight("");
-      const reader = response.body!.getReader();
-      let accumulatedData = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulatedData += new TextDecoder().decode(value, { stream: true });
-        setInsight(accumulatedData);
-      }
+      const apiRes = await ComponentAnalysisService.getInsight(exportData);
+      const data = apiRes.response.map(
+        (item: { analyzedData: string }) => item.analyzedData,
+      );
+      setInsight(apiRes.response);
+      // const reader = response.body!.getReader();
+      // let accumulatedData = "";
+      // while (true) {
+      //   const { done, value } = await reader.read();
+      //   if (done) break;
+      //   accumulatedData += new TextDecoder().decode(value, { stream: true });
+      //   setInsight(accumulatedData);
+      // }
     } catch (error) {
       console.error("Error getting insight:", error);
     } finally {

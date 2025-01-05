@@ -35,7 +35,10 @@ interface ComponentAnalysisProps {
     base64: string;
     base64ImageWithoutMime: string;
   }>;
-  insight: string | null;
+  insight: {
+    analyzedData: string;
+    base64Image: string;
+  }[];
 }
 
 export function ComponentAnalysis({
@@ -140,7 +143,7 @@ export function ComponentAnalysis({
         (component) => component.analysis[0],
       );
       const data = await CodeGenerationService.saveGenerationData(
-        exportData,
+        // exportData,
         analyzedComponents,
         insight,
       );

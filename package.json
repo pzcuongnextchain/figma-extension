@@ -1,9 +1,13 @@
 {
-  "name": "@gracefullight/figma-plugin-component-analysis",
+  "name": "@pzcuong189/figma-plugin-component-analysis",
   "version": "0.1.0",
   "description": "figma plugin preset",
   "license": "MIT",
-  "author": "Figma",
+  "author": "pzcuong189",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "pnpm build:ui && pnpm build:main --minify",
     "build:main": "esbuild src/plugin/code.ts --bundle --outfile=dist/code.js",
@@ -11,28 +15,30 @@
     "build:watch": "concurrently -n widget,iframe \"pnpm build:main --watch\" \"pnpm build:ui --watch\"",
     "dev": "concurrently -n tsc,build,vite 'pnpm:tsc:watch' 'pnpm:build:watch' 'vite'",
     "format": "prettier --write .",
-    "postinstall": "husky install",
+    "prepare": "[ -n \"$CI\" ] || [ -n \"$GLOBAL\" ] || husky install",
     "test": "pnpm tsc && pnpm build",
-    "tsc:watch": "pnpm tsc --watch --preserveWatchOutput"
+    "tsc:watch": "pnpm tsc --watch --preserveWatchOutput",
+    "build:cli": "tsc -p tsconfig.cli.json && chmod +x dist/cli/index.js",
+    "prepublishOnly": "pnpm build:cli"
   },
   "dependencies": {
+    "commander": "^13.0.0",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^6.3.0",
     "@mui/material": "^5.15.13",
     "axios": "^1.7.9",
-    "fs": "^0.0.1-security",
     "jszip": "^3.10.1",
     "lodash": "^4.17.21",
-    "path": "^0.12.7",
     "pnpm": "^9.15.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.1.1",
     "react-syntax-highlighter": "^15.6.1",
-    "reactflow": "^11.11.4"
-  },
-  "devDependencies": {
+    "reactflow": "^11.11.4",
     "@commitlint/cli": "^19.2.0",
     "@commitlint/config-conventional": "^19.1.0",
     "@figma/plugin-typings": "^1.88.0",
@@ -59,5 +65,8 @@
     "vite": "^5.1.6",
     "vite-plugin-singlefile": "^2.0.1",
     "vite-svg-loader": "^5.1.0"
+  },
+  "bin": {
+    "pzcuong189": "dist/cli/index.js"
   }
 }

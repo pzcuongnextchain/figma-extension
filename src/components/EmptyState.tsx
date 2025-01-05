@@ -1,10 +1,4 @@
-import {
-  Button,
-  Stack,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from "@mui/material";
+import { Button, Stack, Typography } from "@mui/material";
 import { useState } from "react";
 import { AIModel, BaseService } from "../services/base/BaseService";
 
@@ -39,7 +33,7 @@ export function EmptyState({ onSelectLayers }: EmptyStateProps) {
         Generate AI-powered components
       </Typography>
 
-      <ToggleButtonGroup
+      {/* <ToggleButtonGroup
         value={selectedModel}
         exclusive
         onChange={handleModelChange}
@@ -61,7 +55,7 @@ export function EmptyState({ onSelectLayers }: EmptyStateProps) {
         >
           Gemini 2.0
         </ToggleButton>
-      </ToggleButtonGroup>
+      </ToggleButtonGroup> */}
 
       <Stack direction="row" spacing={2}>
         <Button variant="outlined" onClick={onSelectLayers}>

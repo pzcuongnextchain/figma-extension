@@ -2,9 +2,13 @@ export type AIModel = "openai" | "gemini";
 
 export abstract class BaseService {
   private static currentModel: AIModel = "gemini";
+  private static isNode = typeof window === "undefined";
 
   protected static get API_BASE_URL(): string {
-    return `https://figma-extension-be.onrender.com/${this.currentModel}`;
+    const baseUrl = this.isNode
+      ? process.env.API_BASE_URL || "http://localhost:8080"
+      : "http://localhost:8080";
+    return `${baseUrl}/${this.currentModel}`;
   }
 
   protected static readonly CODE_EXPLORER_URL =
