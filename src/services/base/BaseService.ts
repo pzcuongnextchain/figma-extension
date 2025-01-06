@@ -1,16 +1,20 @@
 export type AIModel = "openai" | "gemini";
 
 export abstract class BaseService {
-  private static currentModel: AIModel = "openai";
+  private static currentModel: AIModel = "gemini";
+  private static isNode = typeof window === "undefined";
 
   protected static get API_BASE_URL(): string {
-    return `http://localhost:8080/${this.currentModel}`;
+    const baseUrl = this.isNode
+      ? process.env.API_BASE_URL || "http://localhost:8080"
+      : "http://localhost:8080";
+    return `${baseUrl}/${this.currentModel}`;
   }
 
   protected static readonly CODE_EXPLORER_URL =
-    "http://localhost:5173/code-explorer";
+    "http://localhost:5173/code-explorer?model=" + this.currentModel;
   protected static readonly SCHEMA_EXPLORER_URL =
-    "http://localhost:5173/schema-explorer";
+    "http://localhost:5173/schema-explorer?model=" + this.currentModel;
 
   public static setModel(model: AIModel) {
     this.currentModel = model;

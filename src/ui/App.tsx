@@ -6,18 +6,23 @@ import { ExportView } from "../components/ExportView";
 import { ComponentAnalysisService } from "../services/ComponentAnalysisService";
 import { SchemaAnalysisService } from "../services/SchemaAnalysisService";
 import {
-  ExportData,
   FIGMA_BUTTON_TYPE,
   FIGMA_MESSAGE_TYPE,
+  FrameExportData,
 } from "../types/common.type";
 
 function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingInsight, setIsLoadingInsight] = useState(false);
-  const [insight, setInsight] = useState<string | null>(null);
+  const [insight, setInsight] = useState<
+    {
+      analyzedData: string;
+      base64Image: string;
+    }[]
+  >([]);
   const [hasSelectedFrames, setHasSelectedFrames] = useState(false);
   const [geminiResponse, setGeminiResponse] = useState<any[]>([]);
-  const [exportData, setExportData] = useState<ExportData | null>(null);
+  const [exportData, setExportData] = useState<FrameExportData | null>(null);
   const [frameImages, setFrameImages] = useState<
     Array<{
       id: string;
@@ -32,8 +37,7 @@ function App() {
     try {
       const response = await ComponentAnalysisService.analyze(
         exportData!,
-        frameImages,
-        insight!,
+        // insight!,
       );
 
       let accumulatedData = "";
@@ -129,20 +133,19 @@ function App() {
 
     setIsLoadingInsight(true);
     try {
-      const response = await ComponentAnalysisService.getInsight(
-        exportData,
-        frameImages,
+      const apiRes = await ComponentAnalysisService.getInsight(exportData);
+      const data = apiRes.response.map(
+        (item: { analyzedData: string }) => item.analyzedData,
       );
-
-      setInsight("");
-      const reader = response.body!.getReader();
-      let accumulatedData = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulatedData += new TextDecoder().decode(value, { stream: true });
-        setInsight(accumulatedData);
-      }
+      setInsight(apiRes.response);
+      // const reader = response.body!.getReader();
+      // let accumulatedData = "";
+      // while (true) {
+      //   const { done, value } = await reader.read();
+      //   if (done) break;
+      //   accumulatedData += new TextDecoder().decode(value, { stream: true });
+      //   setInsight(accumulatedData);
+      // }
     } catch (error) {
       console.error("Error getting insight:", error);
     } finally {
@@ -156,7 +159,9 @@ function App() {
 
       if (pluginMessage?.type === FIGMA_MESSAGE_TYPE.EXPORT_DATA) {
         try {
-          const parsedExportData = JSON.parse(pluginMessage.data);
+          const parsedExportData = JSON.parse(
+            pluginMessage.data,
+          ) as FrameExportData;
           const imageData = pluginMessage.images;
           setExportData(parsedExportData);
           setFrameImages(imageData);

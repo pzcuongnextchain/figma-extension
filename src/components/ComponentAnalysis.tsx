@@ -19,7 +19,7 @@ import { CodeGenerationService } from "../services/CodeGenerationService";
 import type {
   ComponentAnalysisData,
   ComponentProp,
-  ExportData,
+  FrameExportData,
 } from "../types/common.type";
 
 interface ComponentAnalysisProps {
@@ -28,20 +28,22 @@ interface ComponentAnalysisProps {
     frameName: string;
     analysis: ComponentAnalysisData[];
   }>;
-  exportData: ExportData;
+  exportData: FrameExportData;
   frameImages?: Array<{
     id: string;
     name: string;
     base64: string;
     base64ImageWithoutMime: string;
   }>;
-  insight: string | null;
+  insight: {
+    analyzedData: string;
+    base64Image: string;
+  }[];
 }
 
 export function ComponentAnalysis({
   components: initialComponents,
   exportData,
-  frameImages = [],
   insight,
 }: ComponentAnalysisProps) {
   const [components, setComponents] = useState(initialComponents);
@@ -137,10 +139,12 @@ export function ComponentAnalysis({
 
     setIsGenerating(true);
     try {
+      const analyzedComponents = components.map(
+        (component) => component.analysis[0],
+      );
       const data = await CodeGenerationService.saveGenerationData(
-        components,
-        exportData.documents,
-        frameImages,
+        // exportData,
+        analyzedComponents,
         insight,
       );
 

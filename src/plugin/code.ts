@@ -1,11 +1,10 @@
-import { processComponentSets } from "./utils/nodeProcessor";
-
+import _ from "lodash";
 import {
-  ExportData,
   FIGMA_BUTTON_TYPE,
   FIGMA_MESSAGE_TYPE,
+  FrameExportData,
+  NodeData,
 } from "../types/common.type";
-import { processComponents } from "./utils/nodeProcessor";
 figma.showUI(__html__, {
   width: 500,
   height: 700,
@@ -29,7 +28,6 @@ figma.ui.onmessage = async (msg) => {
               id: node.id,
               name: node.name,
               base64: `data:image/png;base64,${figma.base64Encode(bytes)}`,
-              base64ImageWithoutMime: `${figma.base64Encode(bytes)}`,
             };
           } catch (error) {
             console.error(`Error exporting frame ${node.name}:`, error);
@@ -63,7 +61,6 @@ figma.ui.onmessage = async (msg) => {
               id: node.id,
               name: node.name,
               base64: `data:image/png;base64,${figma.base64Encode(bytes)}`,
-              base64ImageWithoutMime: `${figma.base64Encode(bytes)}`,
             };
           } catch (error) {
             console.error(`Error exporting frame ${node.name}:`, error);
@@ -76,7 +73,7 @@ figma.ui.onmessage = async (msg) => {
 
     figma.ui.postMessage({
       type: FIGMA_MESSAGE_TYPE.EXPORT_SCHEMA_DATA,
-      data: JSON.stringify(data, null, 2),
+      data: JSON.stringify(data, null, 0),
       images: frameImages,
     });
   }
@@ -142,17 +139,28 @@ figma.on("selectionchange", async () => {
 
 async function processSelectedNodes(
   selection: readonly SceneNode[],
-): Promise<ExportData> {
-  const data: ExportData = {
-    components: await processComponents(),
-    componentSets: await processComponentSets(),
-    documents: [],
-  };
+): Promise<FrameExportData[]> {
+  let data: FrameExportData[] = [];
 
   if (selection.length > 0) {
-    selection.forEach((node) => {
+    selection.forEach(async (node) => {
       if (node.type === "FRAME") {
-        data.documents.push(processNode(node));
+        const json = (await node.exportAsync({
+          format: "JSON_REST_V1",
+        })) as { components: any; componentSets: any; document: any };
+        const bytes = await node.exportAsync({
+          format: "PNG",
+          constraint: { type: "SCALE", value: 1 },
+        });
+        const base64Image = figma.base64Encode(bytes);
+        const { document } = json;
+        const processedDocument = processNode(document);
+        data.push({
+          frameData: {
+            document: processedDocument,
+          },
+          base64Image,
+        });
       }
     });
   } else {
@@ -162,18 +170,59 @@ async function processSelectedNodes(
   return data;
 }
 
-function processNode(node: SceneNode) {
-  const nodeData = {
-    id: node.id,
-    name: node.name,
-    type: node.type,
-    children: [],
-  };
+function processNode(node: SceneNode): NodeData {
+  const nodeData = _.cloneDeep(node) as unknown as NodeData;
 
-  if ("children" in node) {
-    nodeData.children = node.children.map(
-      (child) => processNode(child) as never,
-    );
+  const removeKeys = [
+    "overrides",
+    "id",
+    "componentId",
+    "absoluteBoundingBox",
+    "absoluteRenderBounds",
+    "constraints",
+  ];
+  removeKeys.forEach((key) => {
+    delete nodeData[key as keyof NodeData];
+  });
+
+  if (Array.isArray(nodeData.fills) && nodeData.fills.length === 1) {
+    const fill = nodeData.fills[0];
+    if (
+      fill.color &&
+      fill.color.r === 1 &&
+      fill.color.g === 1 &&
+      fill.color.b === 1 &&
+      fill.color.a === 1
+    ) {
+      delete nodeData.fills;
+    }
+  }
+
+  if (
+    nodeData.backgroundColor &&
+    nodeData.backgroundColor.r === 0 &&
+    nodeData.backgroundColor.g === 0 &&
+    nodeData.backgroundColor.b === 0 &&
+    nodeData.backgroundColor.a === 0
+  ) {
+    delete nodeData.backgroundColor;
+  }
+
+  Object.keys(nodeData).forEach((key) => {
+    if (
+      Array.isArray(nodeData[key as keyof NodeData]) &&
+      nodeData[key as keyof NodeData].length === 0
+    ) {
+      delete nodeData[key as keyof NodeData];
+    }
+  });
+
+  if ("children" in node && Array.isArray(node.children)) {
+    if (node.children.length > 0) {
+      nodeData.children = node.children.map((child) => processNode(child));
+    } else {
+      delete nodeData.children;
+    }
   }
 
   return nodeData;

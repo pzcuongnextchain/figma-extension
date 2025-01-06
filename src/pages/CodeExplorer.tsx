@@ -6,6 +6,7 @@ import { ChatBox } from "../components/Chat/ChatBox";
 import { FileList } from "../components/FileTree/FileList";
 import { getLanguage } from "../components/FileTree/utils";
 import { FileViewer } from "../components/FileViewer/FileViewer";
+import { AIModel, BaseService } from "../services/base/BaseService";
 import { CodeExplorerService } from "../services/CodeExplorerService";
 import { FileContent } from "../types/explorer";
 
@@ -54,6 +55,8 @@ export const CodeExplorer: React.FC = () => {
     const fetchData = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const generationId = urlParams.get("id");
+      const model = urlParams.get("model");
+      BaseService.setModel(model as AIModel);
 
       if (generationId) {
         try {

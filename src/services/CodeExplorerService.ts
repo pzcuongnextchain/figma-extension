@@ -1,4 +1,4 @@
-import { BaseService } from "./base/BaseService";
+import { BaseService } from "./base/BaseService.js";
 
 export class CodeExplorerService extends BaseService {
   static async getGenerationStream(
@@ -14,7 +14,9 @@ export class CodeExplorerService extends BaseService {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to fetch generation data");
+      throw new Error(
+        `Failed to fetch generation data: ${response.statusText}`,
+      );
     }
 
     return response;
