@@ -3,6 +3,7 @@ import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import { ComponentAnalysisData, FrameExportData } from "../types/common.type";
 import { ComponentAnalysis } from "./ComponentAnalysis";
+import { LoadingOverlay } from "./LoadingOverlay";
 
 interface ExportViewProps {
   frameImages?: Array<{
@@ -40,11 +41,17 @@ export function ExportView({
   const [components, setComponents] = useState(geminiResponse);
 
   useEffect(() => {
+    setComponents([]);
+  }, [frameImages]);
+
+  useEffect(() => {
     setComponents(geminiResponse);
   }, [geminiResponse]);
 
   return (
     <Stack spacing={2} sx={{ alignItems: "center" }}>
+      <LoadingOverlay show={isLoadingInsight} />
+
       <Typography variant="h6" fontWeight="bold" paddingTop={2}>
         Component Analysis
       </Typography>

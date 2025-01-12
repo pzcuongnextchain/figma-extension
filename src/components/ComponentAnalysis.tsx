@@ -181,13 +181,13 @@ export function ComponentAnalysis({
   };
 
   return (
-    <Stack spacing={2}>
-      <Typography variant="h6" fontWeight="bold" paddingTop={2}>
+    <Stack spacing={2} sx={{ width: "100%" }}>
+      {/* <Typography variant="h6" fontWeight="bold" paddingTop={2}>
         Component List
-      </Typography>
+      </Typography> */}
 
       {components.map((component, index) => (
-        <Card key={component.frameId} sx={{ mb: 2 }}>
+        <Card key={component.frameId} sx={{ mb: 2, width: "100%" }}>
           <CardContent>
             <Stack spacing={2}>
               {component.analysis.map((analysis) => (
@@ -363,7 +363,7 @@ export function ComponentAnalysis({
           variant="contained"
           color="primary"
           onClick={handleViewCode}
-          disabled={isGenerating}
+          disabled={isGenerating || !insight.length}
           startIcon={<CodeIcon />}
           sx={{ minWidth: 200 }}
         >

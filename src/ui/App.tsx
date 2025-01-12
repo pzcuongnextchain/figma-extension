@@ -32,6 +32,11 @@ function App() {
     }>
   >([]);
 
+  useEffect(() => {
+    setInsight([]);
+    setGeminiResponse([]);
+  }, [frameImages]);
+
   const handleAnalyze = async () => {
     setIsLoading(true);
     try {
@@ -227,7 +232,7 @@ function App() {
             onExport={handleAnalyze}
             onGetInsight={handleGetInsight}
             onAnalyzeSchema={handleAnalyzeSchema}
-            disableAnalyzeSchema={frameImages.length === 0}
+            disableAnalyzeSchema={!hasSelectedFrames}
           />
         )}
       </Stack>
