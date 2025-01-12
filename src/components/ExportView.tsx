@@ -1,5 +1,4 @@
 import LightbulbIcon from "@mui/icons-material/Lightbulb";
-import SmartButtonIcon from "@mui/icons-material/SmartButton";
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import { ComponentAnalysisData, FrameExportData } from "../types/common.type";
@@ -93,7 +92,11 @@ export function ExportView({
         }}
       >
         <Stack spacing={2} sx={{ alignItems: "center" }}>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            fontWeight="bold"
+          >
             Component Insight
           </Typography>
           {insight.length ? (
@@ -109,7 +112,7 @@ export function ExportView({
               color="text.secondary"
               sx={{ fontStyle: "italic" }}
             >
-              Get insight about your components before analysis.
+              🚀 Get insight about your components before analysis.
             </Typography>
           )}
         </Stack>
@@ -131,7 +134,7 @@ export function ExportView({
         >
           {isLoadingInsight ? "Getting Insight..." : "Get Insight"}
         </Button>
-        <Button
+        {/* <Button
           variant="contained"
           color="primary"
           onClick={onExport}
@@ -139,7 +142,7 @@ export function ExportView({
           startIcon={<SmartButtonIcon />}
         >
           {isLoading ? "Extracting..." : "Extract Components"}
-        </Button>
+        </Button> */}
         {/* <Button
           variant="contained"
           color="secondary"
@@ -151,8 +154,8 @@ export function ExportView({
         </Button> */}
       </Stack>
 
-      {components.length > 0 && (
-        <Stack spacing={2} sx={{ alignItems: "center" }}>
+      {
+        <Stack spacing={2} sx={{ alignItems: "center", width: "100%" }}>
           <ComponentAnalysis
             components={components}
             exportData={exportData!}
@@ -160,7 +163,7 @@ export function ExportView({
             insight={insight}
           />
         </Stack>
-      )}
+      }
     </Stack>
   );
 }

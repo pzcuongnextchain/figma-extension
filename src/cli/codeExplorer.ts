@@ -22,11 +22,8 @@ export async function processGenerationAndUpdateFiles(
     const response =
       await CodeExplorerService.getGenerationStream(generationId);
 
-    await processStreamAndUpdateFiles(response, state);
-
     try {
-      const hasFinished = JSON.parse(state.accumulatedData);
-      console.log("Generation has finished:", hasFinished);
+      await processStreamAndUpdateFiles(response, state);
     } catch (error) {
       console.log("Continuing generation...");
       const continueMessage = `The previous response was incomplete due to length limitations. To continue the generation, please follow these instructions:
@@ -113,6 +110,12 @@ async function processStreamAndUpdateFiles(
         state.accumulatedData = "";
         continue;
       } catch (e) {
+        const lastChar =
+          state.accumulatedData[state.accumulatedData.length - 1];
+        console.log("Last char:", lastChar);
+        if (done && lastChar === "]") {
+          throw e;
+        }
         // Not valid JSON yet, continue accumulating
       }
 

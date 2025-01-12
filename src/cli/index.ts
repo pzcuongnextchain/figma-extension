@@ -15,7 +15,7 @@ program
   .command("generate")
   .description("Update files from generation ID")
   .argument("<generationId>", "Generation ID to process")
-  .option("-m, --model <model>", "AI model to use")
+  //   .option("-m, --model <model>", "AI model to use")
   .option("--api-url <url>", "API base URL")
   .action(async (generationId: string, options) => {
     if (options.apiUrl) {
@@ -25,7 +25,7 @@ program
     try {
       console.log(`Starting update process...`);
       console.log(`Generation ID: ${generationId}`);
-      console.log(`Model: ${options.model || "gemini"}`);
+      //   console.log(`Model: ${options.model || "gemini"}`);
 
       await processGenerationAndUpdateFiles(
         generationId,
