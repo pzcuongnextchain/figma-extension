@@ -63,18 +63,17 @@ async function validateReactProject() {
         path.join(currentDir, "src", "App.tsx"),
         "utf-8",
       );
-      const hasReactImport =
-        appTsxContent.includes("import") &&
-        (appTsxContent.includes("from 'react'") ||
-          appTsxContent.includes('from "react"'));
+      const hasReactImport = appTsxContent.includes("import");
 
       if (!hasReactImport) {
         return {
           valid: false,
-          error: "App.tsx doesn't appear to be a React component",
+          error:
+            "App.tsx doesn't appear to be a React component or doesn't contain any import statements",
         };
       }
-    } catch {
+    } catch (error) {
+      console.log(error);
       return { valid: false, error: "src/App.tsx not found" };
     }
 

@@ -52,14 +52,25 @@ export function ComponentAnalysis({
   const [components, setComponents] = useState(initialComponents);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingComponent, setEditingComponent] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [command, setCommand] = useState<string>("");
 
+  // Reset command when components change
+  useEffect(() => {
+    setCommand("");
+  }, [initialComponents]);
+
   useEffect(() => {
     setComponents(initialComponents);
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [initialComponents]);
+
+  // Scroll to command when it's generated
+  useEffect(() => {
+    if (command) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [command]);
 
   const handleAddComponent = () => {
     const newComponent = {
@@ -152,7 +163,7 @@ export function ComponentAnalysis({
         insight,
       );
 
-      setCommand(`pzcuong189 generate ${data.response.id} -m openai`);
+      setCommand(`pzcuong189 generate ${data.response.id}`);
 
       // await new Promise((resolve) => setTimeout(resolve, 5000));
       // CodeGenerationService.openInExplorer(data.response.id);

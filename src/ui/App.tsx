@@ -32,11 +32,6 @@ function App() {
     }>
   >([]);
 
-  useEffect(() => {
-    setInsight([]);
-    setGeminiResponse([]);
-  }, [frameImages]);
-
   const handleAnalyze = async () => {
     setIsLoading(true);
     try {
@@ -178,6 +173,8 @@ function App() {
       } else if (pluginMessage?.type === FIGMA_MESSAGE_TYPE.SELECTION_CHANGE) {
         setHasSelectedFrames(pluginMessage.hasSelection);
         if (pluginMessage.frameImages) {
+          setInsight([]);
+          setGeminiResponse([]);
           setFrameImages(pluginMessage.frameImages);
           parent.postMessage(
             { pluginMessage: { type: FIGMA_BUTTON_TYPE.EXPORT } },
@@ -232,7 +229,7 @@ function App() {
             onExport={handleAnalyze}
             onGetInsight={handleGetInsight}
             onAnalyzeSchema={handleAnalyzeSchema}
-            disableAnalyzeSchema={!hasSelectedFrames}
+            disableAnalyzeSchema={frameImages.length === 0}
           />
         )}
       </Stack>

@@ -1,6 +1,6 @@
 import LightbulbIcon from "@mui/icons-material/Lightbulb";
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ComponentAnalysisData, FrameExportData } from "../types/common.type";
 import { ComponentAnalysis } from "./ComponentAnalysis";
 import { LoadingOverlay } from "./LoadingOverlay";
@@ -39,14 +39,37 @@ export function ExportView({
   onAnalyzeSchema,
 }: ExportViewProps) {
   const [components, setComponents] = useState(geminiResponse);
+  const insightRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
+  // Reset components when frameImages changes (selection changes)
   useEffect(() => {
     setComponents([]);
+    // Scroll to bottom when new images are loaded
+    if (frameImages.length > 0) {
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100); // Small delay to ensure images are rendered
+    }
   }, [frameImages]);
 
   useEffect(() => {
     setComponents(geminiResponse);
   }, [geminiResponse]);
+
+  // Scroll to insight when new insight is received
+  useEffect(() => {
+    if (insight.length > 0) {
+      insightRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [insight]);
+
+  // Scroll to bottom when components change
+  useEffect(() => {
+    if (components.length > 0) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [components]);
 
   return (
     <Stack spacing={2} sx={{ alignItems: "center" }}>
@@ -106,22 +129,29 @@ export function ExportView({
           >
             Component Insight
           </Typography>
-          {insight.length ? (
-            <Typography
-              variant="body2"
-              sx={{ whiteSpace: "pre-line", textAlign: "left" }}
-            >
-              {insight.map((item) => item.analyzedData)}
-            </Typography>
-          ) : (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ fontStyle: "italic" }}
-            >
-              🚀 Get insight about your components before analysis.
-            </Typography>
-          )}
+          <Box
+            ref={insightRef}
+            sx={{
+              maxHeight: 200,
+              overflowY: "auto",
+              width: "100%",
+              textAlign: "left",
+            }}
+          >
+            {insight.length ? (
+              <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                {insight.map((item) => item.analyzedData)}
+              </Typography>
+            ) : (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontStyle: "italic", textAlign: "center" }}
+              >
+                🚀 Get insight about your components before analysis.
+              </Typography>
+            )}
+          </Box>
         </Stack>
       </Paper>
 
@@ -171,6 +201,8 @@ export function ExportView({
           />
         </Stack>
       }
+
+      <div ref={bottomRef} />
     </Stack>
   );
 }
