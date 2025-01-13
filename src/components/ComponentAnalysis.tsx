@@ -1,5 +1,6 @@
 import AddIcon from "@mui/icons-material/Add";
 import CodeIcon from "@mui/icons-material/Code";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
@@ -9,6 +10,8 @@ import {
   Card,
   CardContent,
   IconButton,
+  InputAdornment,
+  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -49,12 +52,25 @@ export function ComponentAnalysis({
   const [components, setComponents] = useState(initialComponents);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingComponent, setEditingComponent] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [command, setCommand] = useState<string>("");
+
+  // Reset command when components change
+  useEffect(() => {
+    setCommand("");
+  }, [initialComponents]);
 
   useEffect(() => {
     setComponents(initialComponents);
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [initialComponents]);
+
+  // Scroll to command when it's generated
+  useEffect(() => {
+    if (command) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [command]);
 
   const handleAddComponent = () => {
     const newComponent = {
@@ -143,13 +159,14 @@ export function ComponentAnalysis({
         (component) => component.analysis[0],
       );
       const data = await CodeGenerationService.saveGenerationData(
-        // exportData,
         analyzedComponents,
         insight,
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      CodeGenerationService.openInExplorer(data.response.id);
+      setCommand(`pzcuong189 generate ${data.response.id}`);
+
+      // await new Promise((resolve) => setTimeout(resolve, 5000));
+      // CodeGenerationService.openInExplorer(data.response.id);
     } catch (error) {
       console.error("Error preparing analysis:", error);
     } finally {
@@ -157,14 +174,31 @@ export function ComponentAnalysis({
     }
   };
 
+  const handleCopyCommand = async () => {
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = command;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-999999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
+
   return (
-    <Stack spacing={2}>
-      <Typography variant="h6" fontWeight="bold" paddingTop={2}>
+    <Stack spacing={2} sx={{ width: "100%" }}>
+      {/* <Typography variant="h6" fontWeight="bold" paddingTop={2}>
         Component List
-      </Typography>
+      </Typography> */}
 
       {components.map((component, index) => (
-        <Card key={component.frameId} sx={{ mb: 2 }}>
+        <Card key={component.frameId} sx={{ mb: 2, width: "100%" }}>
           <CardContent>
             <Stack spacing={2}>
               {component.analysis.map((analysis) => (
@@ -332,6 +366,7 @@ export function ComponentAnalysis({
           variant="outlined"
           startIcon={<AddIcon />}
           onClick={handleAddComponent}
+          disabled
         >
           Add Component
         </Button>
@@ -339,13 +374,62 @@ export function ComponentAnalysis({
           variant="contained"
           color="primary"
           onClick={handleViewCode}
-          disabled={isGenerating}
+          disabled={isGenerating || !insight.length}
           startIcon={<CodeIcon />}
           sx={{ minWidth: 200 }}
         >
           {isGenerating ? "Generating..." : "View Code"}
         </Button>
       </Stack>
+
+      <Snackbar
+        open={copySuccess}
+        autoHideDuration={2000}
+        onClose={() => setCopySuccess(false)}
+        message="Command copied to clipboard"
+      />
+
+      {command && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle2" gutterBottom>
+              CLI Command
+            </Typography>
+            <TextField
+              fullWidth
+              value={command}
+              InputProps={{
+                readOnly: true,
+                sx: {
+                  fontFamily: "monospace",
+                  bgcolor: "action.hover",
+                  "& .MuiInputAdornment-root": {
+                    marginRight: -0.5,
+                  },
+                },
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={handleCopyCommand}
+                      size="small"
+                      sx={{
+                        padding: "4px",
+                        "& .MuiSvgIcon-root": {
+                          fontSize: "1rem",
+                        },
+                      }}
+                    >
+                      <ContentCopyIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              variant="outlined"
+              size="small"
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <div ref={bottomRef} />
     </Stack>

@@ -22,11 +22,8 @@ export async function processGenerationAndUpdateFiles(
     const response =
       await CodeExplorerService.getGenerationStream(generationId);
 
-    await processStreamAndUpdateFiles(response, state);
-
     try {
-      const hasFinished = JSON.parse(state.accumulatedData);
-      console.log("Generation has finished:", hasFinished);
+      await processStreamAndUpdateFiles(response, state);
     } catch (error) {
       console.log("Continuing generation...");
       const continueMessage = `The previous response was incomplete due to length limitations. To continue the generation, please follow these instructions:
@@ -41,8 +38,6 @@ export async function processGenerationAndUpdateFiles(
         generationId,
       );
       await processStreamAndUpdateFiles(response, state);
-      console.error("Error processing generation:", error);
-      throw error;
     }
   } catch (error) {
     console.error("Error processing generation:", error);
@@ -66,60 +61,85 @@ async function processStreamAndUpdateFiles(
       const { value, done } = await reader.read();
       const chunk = new TextDecoder().decode(value);
 
-      // Clean up the chunk if it starts with a new file entry while we have incomplete data
+      // If we have incomplete content and this chunk starts with a new file
       if (
-        state.accumulatedData.includes('"fileContent":') &&
-        chunk.startsWith('{"fileContent":')
+        state.incompleteContent &&
+        chunk.trim().startsWith('{"fileContent":')
       ) {
-        // Extract and save the incomplete content
-        const fileContentIndex =
-          state.accumulatedData.lastIndexOf('"fileContent":');
-        if (fileContentIndex !== -1) {
-          const incompleteContent = state.accumulatedData
-            .slice(fileContentIndex)
-            .replace('"fileContent":', "")
-            .replace(/^[\s"]+/, "")
-            .trim();
-          state.incompleteContent = incompleteContent;
-
-          // Reset accumulated data to start fresh with the new chunk
-          state.accumulatedData = "";
+        console.log("Incomplete content found, storing it...");
+        console.log("Pending contents:", state.pendingContents);
+        // Store the incomplete content with its file name
+        const lastFileName = Object.keys(state.pendingContents)[0];
+        if (lastFileName) {
+          state.pendingContents[lastFileName] = state.incompleteContent;
         }
+        state.incompleteContent = "";
+        state.accumulatedData = chunk;
+      } else {
+        state.accumulatedData += chunk;
       }
 
-      state.accumulatedData += chunk;
-      console.log("Current accumulated data:", state.accumulatedData);
-
-      // Try to parse as complete JSON first
+      // Try to parse as complete JSON
       try {
+        await fs.writeFile(
+          "C:/Users/PC/Desktop/Figma Extraction Plugin/figma-plugin-starter/state.json",
+          state.accumulatedData,
+        );
         const parsedData = JSON.parse(state.accumulatedData);
         if (Array.isArray(parsedData)) {
           for (const entry of parsedData) {
             if (entry.fileName && entry.fileContent) {
-              // If we have incomplete content from previous chunk, combine it
-              const finalContent = state.incompleteContent
-                ? state.incompleteContent + entry.fileContent
+              // Check if we have pending content for this file
+              const pendingContent = state.pendingContents[entry.fileName];
+              const finalContent = pendingContent
+                ? pendingContent + entry.fileContent
                 : entry.fileContent;
 
               allFiles.push({
                 fileName: entry.fileName,
                 content: finalContent,
               });
-              state.incompleteContent = ""; // Reset incomplete content
+
+              // Clear pending content for this file
+              delete state.pendingContents[entry.fileName];
             }
           }
+          state.accumulatedData = "";
+          continue;
         }
-        // Clear accumulated data if successfully parsed
-        state.accumulatedData = "";
-        continue;
       } catch (e) {
-        // Not valid JSON yet, continue accumulating
+        // If parsing failed, try to extract any incomplete file content
+        const fileContentMatch = state.accumulatedData.match(
+          /"fileContent"\s*:\s*"([^"]*)$/,
+        );
+        if (fileContentMatch) {
+          state.incompleteContent = fileContentMatch[1];
+        }
+
+        // Extract the file name if possible
+        const fileNameMatch = state.accumulatedData.match(
+          /"fileName"\s*:\s*"([^"]+)"/,
+        );
+        if (fileNameMatch && state.incompleteContent) {
+          state.pendingContents[fileNameMatch[1]] = state.incompleteContent;
+        }
+
+        if (done) {
+          throw e;
+        }
       }
 
       if (done) {
         // Handle any remaining incomplete content
-        if (state.incompleteContent) {
-          console.log("Remaining incomplete content:", state.incompleteContent);
+        if (Object.keys(state.pendingContents).length > 0) {
+          for (const [fileName, content] of Object.entries(
+            state.pendingContents,
+          )) {
+            allFiles.push({
+              fileName,
+              content,
+            });
+          }
         }
 
         // Write all accumulated files
@@ -132,22 +152,6 @@ async function processStreamAndUpdateFiles(
           console.log(`Successfully created ${allFiles.length} files`);
         }
         break;
-      }
-
-      // Trim processed data if we find a complete entry
-      const lastCompleteEntry = state.accumulatedData.lastIndexOf('"}');
-      if (lastCompleteEntry > -1) {
-        const nextFileStart = state.accumulatedData.indexOf(
-          '{"fileContent":',
-          lastCompleteEntry,
-        );
-        if (nextFileStart > -1) {
-          state.accumulatedData = state.accumulatedData.slice(nextFileStart);
-        } else {
-          state.accumulatedData = state.accumulatedData.slice(
-            lastCompleteEntry + 2,
-          );
-        }
       }
     }
   } catch (error) {
