@@ -10,7 +10,7 @@ export const createFileTree = (files: FileContent[]): FileNode => {
   };
 
   files.forEach((file) => {
-    const parts = file.fileName.split("/");
+    const parts = file.aFileName.split("/");
     let currentNode = root;
 
     parts.forEach((part, index) => {
@@ -31,8 +31,8 @@ export const createFileTree = (files: FileContent[]): FileNode => {
   return root;
 };
 
-export const getLanguage = (fileName: string): string => {
-  const extension = fileName.split(".").pop()?.toLowerCase() || "";
+export const getLanguage = (aFileName: string): string => {
+  const extension = aFileName.split(".").pop()?.toLowerCase() || "";
   const languageMap: { [key: string]: string } = {
     js: "javascript",
     jsx: "jsx",

@@ -1,5 +1,5 @@
 export interface FileContent {
-  fileName: string;
+  aFileName: string;
   fileContent: string | null;
 }
 
@@ -19,9 +19,9 @@ export interface ChatMessage {
 export interface FileTreeItemProps {
   node: FileNode;
   level?: number;
-  onFileClick: (fileName: string, content: string | null) => void;
+  onFileClick: (aFileName: string, content: string | null) => void;
   selectedPath: string | null;
-  isFileUpdated?: (fileName: string) => boolean;
+  isFileUpdated?: (aFileName: string) => boolean;
 }
 
 export interface CodeExplorerProps {
@@ -30,16 +30,16 @@ export interface CodeExplorerProps {
 
 export interface FileViewerProps {
   selectedFile: FileContent | null;
-  getLanguage: (fileName: string) => string;
+  getLanguage: (aFileName: string) => string;
   files: FileContent[];
-  isFileUpdated?: (fileName: string) => boolean;
+  isFileUpdated?: (aFileName: string) => boolean;
 }
 
 export interface FileListProps {
   files: FileContent[];
   selectedFile: FileContent | null;
-  onFileClick: (fileName: string, content: string | null) => void;
-  isFileUpdated?: (fileName: string) => boolean;
+  onFileClick: (aFileName: string, content: string | null) => void;
+  isFileUpdated?: (aFileName: string) => boolean;
 }
 
 export interface ChatBoxProps {

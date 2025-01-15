@@ -50,8 +50,8 @@ export const FileViewer: React.FC<FileViewerProps> = ({
             }}
           >
             <Typography variant="h6" sx={{ p: 1.5, pb: 1.5 }}>
-              {selectedFile.fileName}
-              {isFileUpdated?.(selectedFile.fileName) && (
+              {selectedFile.aFileName}
+              {isFileUpdated?.(selectedFile.aFileName) && (
                 <Box
                   component="span"
                   sx={{
@@ -75,7 +75,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({
           <Box sx={{ flex: 1, p: 2, pt: 1.5 }}>
             {selectedFile?.fileContent ? (
               <SyntaxHighlighter
-                language={getLanguage(selectedFile.fileName)}
+                language={getLanguage(selectedFile.aFileName)}
                 style={oneLight}
                 customStyle={{
                   margin: 0,

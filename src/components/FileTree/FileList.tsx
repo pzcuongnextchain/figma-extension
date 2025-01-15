@@ -43,7 +43,7 @@ export const FileList: React.FC<FileListProps> = ({
             <FileTreeItem
               node={createFileTree(files)}
               onFileClick={onFileClick}
-              selectedPath={selectedFile?.fileName || null}
+              selectedPath={selectedFile?.aFileName || null}
               isFileUpdated={isFileUpdated}
             />
           </List>

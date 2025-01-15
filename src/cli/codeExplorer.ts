@@ -3,14 +3,30 @@ import path from "path";
 import { CodeExplorerService } from "../services/CodeExplorerService.js";
 import { AIModel, BaseService } from "../services/base/BaseService.js";
 
+interface GenerationState {
+  accumulatedData: string;
+  incompleteContent: string;
+  pendingContents: Record<string, string>;
+  attemptCount: number;
+  lastCompleteObject: string;
+  isArrayStarted: boolean;
+  currentFileName: string | null;
+  completedFiles: Set<string>;
+}
+
 export async function processGenerationAndUpdateFiles(
   generationId: string,
   model?: AIModel,
 ) {
-  const state = {
+  const state: GenerationState = {
     accumulatedData: "",
     incompleteContent: "",
-    pendingContents: {} as Record<string, string>,
+    pendingContents: {},
+    attemptCount: 0,
+    lastCompleteObject: "",
+    isArrayStarted: false,
+    currentFileName: null,
+    completedFiles: new Set<string>(),
   };
 
   try {
@@ -18,160 +34,258 @@ export async function processGenerationAndUpdateFiles(
       BaseService.setModel(model);
     }
 
-    console.log("Fetching generation data...");
-    const response =
-      await CodeExplorerService.getGenerationStream(generationId);
+    let isComplete = false;
+    while (!isComplete && state.attemptCount < 3) {
+      try {
+        if (state.attemptCount === 0) {
+          console.log("Fetching initial generation data...");
+          const response =
+            await CodeExplorerService.getGenerationStream(generationId);
+          await processStreamAndUpdateFiles(response, state);
 
-    try {
-      await processStreamAndUpdateFiles(response, state);
-    } catch (error) {
-      console.log("Continuing generation...");
-      const continueMessage = `The previous response was incomplete due to length limitations. To continue the generation, please follow these instructions:
-        Do not repeat any previously generated content, including the file header or content prior to the interruption.
-        Begin from the point where the previous response was cut off. 
-        Maintain consistency in format, style, and structure as seen in the previous content.
-        If there are additional files to generate, proceed to the next one after completing the interrupted file.
-        The last part of the interrupted file was: ${state.incompleteContent}
-      `;
-      const response = await CodeExplorerService.streamChatResponse(
-        continueMessage,
-        generationId,
-      );
-      await processStreamAndUpdateFiles(response, state);
+          // Check if we have a valid complete array
+          if (validateAccumulatedData(state.accumulatedData)) {
+            console.log("\n✅ All files processed successfully!");
+            isComplete = true;
+          } else {
+            state.attemptCount++;
+          }
+        } else {
+          // Only continue if we actually have incomplete content
+          if (
+            !state.accumulatedData.trim() ||
+            state.accumulatedData.trim() === "["
+          ) {
+            console.log("\n✅ No more files to process!");
+            isComplete = true;
+            break;
+          }
+
+          console.log(
+            `\n🔄 Attempt ${state.attemptCount + 1} to complete generation...`,
+          );
+          const continueMessage = generateContinuationMessage(state);
+          console.log("\n📝 Debug - Continuation message:", continueMessage);
+          const continuationResponse =
+            await CodeExplorerService.streamChatResponse(
+              continueMessage,
+              generationId,
+            );
+          await processStreamAndUpdateFiles(continuationResponse, state);
+
+          if (validateAccumulatedData(state.accumulatedData)) {
+            isComplete = true;
+          } else {
+            state.attemptCount++;
+          }
+        }
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === "INCOMPLETE_CONTENT") {
+          state.attemptCount++;
+          if (state.attemptCount >= 3) {
+            console.log("\n❌ Max retry attempts reached");
+            throw error;
+          }
+          continue;
+        }
+        throw error;
+      }
     }
   } catch (error) {
-    console.error("Error processing generation:", error);
+    console.error("❌ Error processing generation:", error);
     throw error;
   }
 }
 
 async function processStreamAndUpdateFiles(
   response: Response,
-  state: {
-    accumulatedData: string;
-    incompleteContent: string;
-    pendingContents: Record<string, string>;
-  },
+  state: GenerationState,
 ) {
   const reader = response.body!.getReader();
-  const allFiles: { fileName: string; content: string }[] = [];
+  const decoder = new TextDecoder();
 
   try {
     while (true) {
-      const { value, done } = await reader.read();
-      const chunk = new TextDecoder().decode(value);
+      const { done, value } = await reader.read();
 
-      // If we have incomplete content and this chunk starts with a new file
-      if (
-        state.incompleteContent &&
-        chunk.trim().startsWith('{"fileContent":')
-      ) {
-        console.log("Incomplete content found, storing it...");
-        console.log("Pending contents:", state.pendingContents);
-        // Store the incomplete content with its file name
-        const lastFileName = Object.keys(state.pendingContents)[0];
-        if (lastFileName) {
-          state.pendingContents[lastFileName] = state.incompleteContent;
-        }
-        state.incompleteContent = "";
-        state.accumulatedData = chunk;
-      } else {
+      if (value) {
+        const chunk = decoder.decode(value);
         state.accumulatedData += chunk;
-      }
+        console.log("\n📦 Received chunk:", chunk);
 
-      // Try to parse as complete JSON
-      try {
-        await fs.writeFile(
-          "C:/Users/PC/Desktop/Figma Extraction Plugin/figma-plugin-starter/state.json",
-          state.accumulatedData,
-        );
-        const parsedData = JSON.parse(state.accumulatedData);
-        if (Array.isArray(parsedData)) {
-          for (const entry of parsedData) {
-            if (entry.fileName && entry.fileContent) {
-              // Check if we have pending content for this file
-              const pendingContent = state.pendingContents[entry.fileName];
-              const finalContent = pendingContent
-                ? pendingContent + entry.fileContent
-                : entry.fileContent;
+        // Check if we have a complete array
+        if (state.accumulatedData.trim().startsWith("[")) {
+          state.isArrayStarted = true;
 
-              allFiles.push({
-                fileName: entry.fileName,
-                content: finalContent,
-              });
+          // Try to extract and process complete objects
+          const objects = extractCompleteObjects(state.accumulatedData);
 
-              // Clear pending content for this file
-              delete state.pendingContents[entry.fileName];
+          for (const obj of objects) {
+            try {
+              if (!state.completedFiles.has(obj.aFileName)) {
+                await updateFile(obj.aFileName, obj.fileContent);
+                state.completedFiles.add(obj.aFileName);
+                console.log(`\n✅ Successfully processed: ${obj.aFileName}`);
+              }
+            } catch (e) {
+              console.error(`\n❌ Error processing ${obj.aFileName}:`, e);
             }
           }
-          state.accumulatedData = "";
-          continue;
-        }
-      } catch (e) {
-        // If parsing failed, try to extract any incomplete file content
-        const fileContentMatch = state.accumulatedData.match(
-          /"fileContent"\s*:\s*"([^"]*)$/,
-        );
-        if (fileContentMatch) {
-          state.incompleteContent = fileContentMatch[1];
-        }
 
-        // Extract the file name if possible
-        const fileNameMatch = state.accumulatedData.match(
-          /"fileName"\s*:\s*"([^"]+)"/,
-        );
-        if (fileNameMatch && state.incompleteContent) {
-          state.pendingContents[fileNameMatch[1]] = state.incompleteContent;
-        }
-
-        if (done) {
-          throw e;
+          // If we have a complete array, we're done
+          if (state.accumulatedData.trim().endsWith("]")) {
+            try {
+              JSON.parse(state.accumulatedData);
+              console.log("\n✅ Complete array processed successfully");
+              return;
+            } catch (e) {
+              // Array is not complete yet
+            }
+          }
         }
       }
 
       if (done) {
-        // Handle any remaining incomplete content
-        if (Object.keys(state.pendingContents).length > 0) {
-          for (const [fileName, content] of Object.entries(
-            state.pendingContents,
-          )) {
-            allFiles.push({
-              fileName,
-              content,
-            });
-          }
+        // Don't throw error if we have processed files but stream ended
+        if (state.completedFiles.size > 0) {
+          console.log("\n📝 Stream ended but files were processed");
+          return;
         }
 
-        // Write all accumulated files
-        if (allFiles.length > 0) {
-          await Promise.all(
-            allFiles.map((file) =>
-              updateFileOnDisk(file.fileName, file.content),
-            ),
-          );
-          console.log(`Successfully created ${allFiles.length} files`);
+        // Only throw if we have no complete array and no processed files
+        if (!state.accumulatedData.trim().endsWith("]")) {
+          throw new Error("INCOMPLETE_CONTENT");
         }
         break;
       }
     }
-  } catch (error) {
-    console.error("Error processing stream:", error);
-    throw error;
+  } finally {
+    reader.releaseLock();
   }
 }
 
-async function updateFileOnDisk(fileName: string, content: string) {
+function extractCompleteObjects(
+  data: string,
+): Array<{ aFileName: string; fileContent: string }> {
+  const objects: Array<{ aFileName: string; fileContent: string }> = [];
+
+  // Remove the outer brackets and split by "},{"
+  const content = data.trim().replace(/^\[/, "").replace(/\]$/, "").trim();
+
+  // Split the content into potential objects
+  const parts = content.split(/},\s*{/);
+
+  for (let i = 0; i < parts.length; i++) {
+    let part = parts[i];
+
+    // Add back the curly braces that were removed by the split
+    if (!part.startsWith("{")) part = "{" + part;
+    if (!part.endsWith("}")) part = part + "}";
+
+    try {
+      const parsed = JSON.parse(part);
+      if (parsed.aFileName && typeof parsed.fileContent === "string") {
+        objects.push(parsed);
+      }
+    } catch (e) {
+      // Skip incomplete objects
+    }
+  }
+
+  return objects;
+}
+
+// Add this helper function to validate the accumulated data
+function validateAccumulatedData(data: string): boolean {
   try {
-    const currentDir = process.cwd();
-    const filePath = path.join(currentDir, fileName);
+    // Check if we have a complete array
+    if (data.trim().startsWith("[") && data.trim().endsWith("]")) {
+      JSON.parse(data);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function updateFile(aFileName: string, content: string) {
+  try {
+    console.log(`\n📝 About to write file: ${aFileName}`);
+    console.log("Content length:", content.length);
+    console.log("First 100 chars:", content.substring(0, 100));
+    const filePath = path.join(process.cwd(), aFileName);
     const dirPath = path.dirname(filePath);
 
     await fs.mkdir(dirPath, { recursive: true });
     await fs.writeFile(filePath, content, "utf8");
-    console.log(`File written successfully: ${filePath}`);
+    console.log(`✅ File written successfully: ${aFileName}`);
   } catch (error) {
-    console.error(`Error updating file ${fileName}:`, error);
-    console.error("Content that failed:", content);
+    console.error(`❌ Error updating file ${aFileName}:`, error);
+    console.error("📝 Debug - Content that failed:", content);
     throw error;
   }
+}
+
+function generateContinuationMessage(state: GenerationState): string {
+  const completedFilesList = Array.from(state.completedFiles).join(", ");
+
+  // Find the last complete object in the accumulated data
+  const lastCompleteObjectIndex = findLastCompleteObjectIndex(
+    state.accumulatedData,
+  );
+
+  // Get only the incomplete part (everything after the last complete object)
+  const incompletePart =
+    lastCompleteObjectIndex !== -1
+      ? state.accumulatedData.slice(lastCompleteObjectIndex)
+      : state.accumulatedData;
+
+  return `Continue generating from this incomplete array. The incomplete part is:
+    ${incompletePart}
+    
+    Already completed files (DO NOT generate these again):
+    ${completedFilesList}
+    
+    Please complete this object and continue with any remaining files.
+    Important: 
+    1. Do not repeat any completed objects listed above
+    2. Only continue from the incomplete part
+    3. Make sure to properly close the array with ]`;
+}
+
+function findLastCompleteObjectIndex(data: string): number {
+  let index = -1;
+  let braceCount = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < data.length; i++) {
+    const char = data[i];
+
+    if (inString) {
+      if (char === "\\" && !escaped) {
+        escaped = true;
+      } else if (char === '"' && !escaped) {
+        inString = false;
+      } else {
+        escaped = false;
+      }
+      continue;
+    }
+
+    if (char === '"' && !escaped) {
+      inString = true;
+    } else if (char === "{") {
+      braceCount++;
+    } else if (char === "}") {
+      braceCount--;
+      if (braceCount === 0) {
+        // Found a complete object
+        index = i + 1;
+      }
+    }
+  }
+
+  return index;
 }
