@@ -5,6 +5,7 @@ export class CodeExplorerService extends BaseService {
     id: string,
     signal?: AbortSignal,
   ): Promise<Response> {
+    console.log("Call to URL", `${this.API_BASE_URL}/code-generation/${id}`);
     const response = await fetch(`${this.API_BASE_URL}/code-generation/${id}`, {
       method: "GET",
       headers: {

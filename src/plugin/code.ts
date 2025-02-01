@@ -24,13 +24,14 @@ figma.ui.onmessage = async (msg) => {
         if (node.type === "FRAME") {
           try {
             const bytes = await node.exportAsync({
-              format: "JPG",
-              constraint: { type: "SCALE", value: 1 },
+              format: "PNG",
+              constraint: { type: "SCALE", value: 2 },
             });
             return {
               id: node.id,
               name: node.name,
               base64: `data:image/png;base64,${figma.base64Encode(bytes)}`,
+              base64ImageWithoutMime: figma.base64Encode(bytes),
             };
           } catch (error) {
             console.error(`Error exporting frame ${node.name}:`, error);
@@ -133,6 +134,7 @@ figma.on("selectionchange", async () => {
               id: node.id,
               name: node.name,
               base64: `data:image/png;base64,${figma.base64Encode(bytes)}`,
+              base64ImageWithoutMime: figma.base64Encode(bytes),
             };
           } catch (error) {
             console.error(`Error exporting frame ${node.name}:`, error);

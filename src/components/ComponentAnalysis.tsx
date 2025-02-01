@@ -32,7 +32,7 @@ interface ComponentAnalysisProps {
     analysis: ComponentAnalysisData[];
   }>;
   exportData: FrameExportData;
-  frameImages?: Array<{
+  frameImages: Array<{
     id: string;
     name: string;
     base64: string;
@@ -47,6 +47,7 @@ interface ComponentAnalysisProps {
 export function ComponentAnalysis({
   components: initialComponents,
   exportData,
+  frameImages,
   insight,
 }: ComponentAnalysisProps) {
   const [components, setComponents] = useState(initialComponents);
@@ -148,7 +149,7 @@ export function ComponentAnalysis({
   };
 
   const handleViewCode = async () => {
-    if (!exportData || !insight) {
+    if (!exportData || !frameImages) {
       console.error("Missing required data for analysis");
       return;
     }
@@ -158,15 +159,19 @@ export function ComponentAnalysis({
       const analyzedComponents = components.map(
         (component) => component.analysis[0],
       );
+
+      // Create insight array with frame images
+      const insightWithImages = frameImages.map((frame) => ({
+        analyzedData: "", // Empty string as we're focusing on images
+        base64Image: frame.base64ImageWithoutMime,
+      }));
+
       const data = await CodeGenerationService.saveGenerationData(
         analyzedComponents,
-        insight,
+        insightWithImages, // Use the new insight array with images
       );
 
       setCommand(`pzcuong189 generate ${data.response.id}`);
-
-      // await new Promise((resolve) => setTimeout(resolve, 5000));
-      // CodeGenerationService.openInExplorer(data.response.id);
     } catch (error) {
       console.error("Error preparing analysis:", error);
     } finally {
@@ -374,7 +379,7 @@ export function ComponentAnalysis({
           variant="contained"
           color="primary"
           onClick={handleViewCode}
-          disabled={isGenerating || !insight.length}
+          disabled={isGenerating}
           startIcon={<CodeIcon />}
           sx={{ minWidth: 200 }}
         >

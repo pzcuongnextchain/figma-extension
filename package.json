@@ -24,7 +24,9 @@
   },
   "dependencies": {
     "commander": "^13.0.0",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7"
   },
   "devDependencies": {
     "@emotion/react": "^11.11.4",

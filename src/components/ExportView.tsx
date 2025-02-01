@@ -1,5 +1,4 @@
-import LightbulbIcon from "@mui/icons-material/Lightbulb";
-import { Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 import { ComponentAnalysisData, FrameExportData } from "../types/common.type";
 import { ComponentAnalysis } from "./ComponentAnalysis";
@@ -112,7 +111,7 @@ export function ExportView({
         </Stack>
       )}
 
-      <Paper
+      {/* <Paper
         variant="outlined"
         sx={{
           p: 2,
@@ -153,9 +152,9 @@ export function ExportView({
             )}
           </Box>
         </Stack>
-      </Paper>
+      </Paper> */}
 
-      <Stack
+      {/* <Stack
         direction="row"
         spacing={2}
         justifyContent="center"
@@ -170,8 +169,8 @@ export function ExportView({
           startIcon={<LightbulbIcon />}
         >
           {isLoadingInsight ? "Getting Insight..." : "Get Insight"}
-        </Button>
-        {/* <Button
+        </Button> */}
+      {/* <Button
           variant="contained"
           color="primary"
           onClick={onExport}
@@ -180,7 +179,7 @@ export function ExportView({
         >
           {isLoading ? "Extracting..." : "Extract Components"}
         </Button> */}
-        {/* <Button
+      {/* <Button
           variant="contained"
           color="secondary"
           onClick={onAnalyzeSchema}
@@ -189,7 +188,7 @@ export function ExportView({
         >
           {isLoading ? "Extracting..." : "Extract Schema"}
         </Button> */}
-      </Stack>
+      {/* </Stack> */}
 
       {
         <Stack spacing={2} sx={{ alignItems: "center", width: "100%" }}>

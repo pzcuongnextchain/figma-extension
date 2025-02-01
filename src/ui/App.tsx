@@ -137,6 +137,7 @@ function App() {
       const data = apiRes.response.map(
         (item: { analyzedData: string }) => item.analyzedData,
       );
+
       setInsight(apiRes.response);
       // const reader = response.body!.getReader();
       // let accumulatedData = "";
