@@ -13,7 +13,7 @@ interface GenerationState {
 
 const MAX_ATTEMPTS = 3;
 const MAX_RETRIES = 5;
-const RETRY_DELAY = 5000; // 5 seconds
+const RETRY_DELAY = 0; // 5 seconds
 
 export async function processGenerationAndUpdateFiles(
   generationId: string,
@@ -27,9 +27,7 @@ export async function processGenerationAndUpdateFiles(
   };
 
   try {
-    if (model) {
-      BaseService.setModel(model);
-    }
+    if (model) BaseService.setModel(model);
 
     let isComplete = false;
     while (!isComplete && state.attemptCount < MAX_ATTEMPTS) {
@@ -38,7 +36,44 @@ export async function processGenerationAndUpdateFiles(
         state.accumulatedData = "";
 
         if (state.attemptCount === 0) {
-          console.log("Fetching initial generation data...");
+          console.log("🔑 Loading requirements...");
+
+          const requirementsResponse =
+            await CodeExplorerService.getRequirements(generationId);
+          const requirements = await requirementsResponse.json();
+
+          try {
+            let requirementsJson = requirements.response;
+            try {
+              const parsed = JSON.parse(requirementsJson);
+              if (typeof parsed === "string") {
+                requirementsJson = parsed;
+              }
+            } catch (e) {
+              console.log("\n⚠️ First parse failed, using original...");
+              console.log(
+                "🔍 Original requirements:",
+                requirements.response.text,
+              );
+            }
+
+            // Set the requirements in state
+            state.requirements = JSON.parse(requirementsJson);
+            state.requirements!.remainingFiles =
+              state.requirements!.remainingFiles.map(normalizePath);
+            console.log("\n📋 Requirements loaded:", state.requirements);
+
+            // Write requirements file
+            await fs.writeFile(
+              "requirements.json",
+              requirements.response,
+              "utf8",
+            );
+          } catch (e) {
+            console.error("\n❌ Error parsing requirements:", e);
+            throw e;
+          }
+
           const response =
             await CodeExplorerService.getGenerationStream(generationId);
           await processStreamAndUpdateFiles(response, state);
@@ -73,12 +108,11 @@ export async function processGenerationAndUpdateFiles(
                 
                 Important: 
                 1. Do not repeat any completed files listed above
-                2. Start fresh with a new array
-                3. Focus on generating the missing files listed above
-                4. Do not including any text, keep follow rule: [{aFileName,fileContent}]
-                5. Ensure the generated code must be as same as with the design
-                6. Do not include any comments or other text that is not part of the code
-                7. Only generate ReactJS code, DO NOT use NextJS or any other framework
+                2. Focus on generating the missing files listed above
+                3. Do not including any text, keep follow rule: <FileName=[]>fileContent</FileName>
+                4. Ensure the generated code must be as same as with the design
+                5. Do not include any comments or other text that is not part of the code
+                6. Only generate ReactJS code, DO NOT use NextJS or any other framework
               `;
 
               const continuationResponse =
@@ -153,215 +187,66 @@ async function processStreamAndUpdateFiles(
       if (value) {
         const chunk = decoder.decode(value);
         buffer += chunk;
-        console.log("\n📥 Received chunk:", chunk.substring(0, 100) + "...");
 
-        // Try to find complete JSON objects in the buffer
-        let startIdx = -1;
-        const jsonMarkerIdx = buffer.indexOf("```json");
+        while (true) {
+          const fileTagStart = buffer.indexOf("<FileName=");
+          if (fileTagStart === -1) break;
+          const fileTagEnd = buffer.indexOf(">", fileTagStart);
+          if (fileTagEnd === -1) break;
 
-        if (jsonMarkerIdx !== -1) {
-          console.log("\n🔍 Found ```json marker at:", jsonMarkerIdx);
-          // Look for the actual array start after ```json
-          const arrayStart = buffer.indexOf("[", jsonMarkerIdx);
-          if (arrayStart !== -1) {
-            console.log("📍 Found array start at:", arrayStart);
-            startIdx = jsonMarkerIdx;
-          }
-        } else {
-          startIdx = buffer.indexOf("[");
-          if (startIdx !== -1) {
-            console.log("\n📍 Found direct array start at:", startIdx);
-          }
-        }
+          console.log(
+            "Found file tag:",
+            buffer.substring(fileTagStart, fileTagEnd + 1),
+          );
 
-        if (startIdx !== -1) {
-          let endIdx = -1;
-          let depth = 0;
-          let inString = false;
-          let escape = false;
-          let foundArrayStart = false;
+          const fileName = buffer.match(
+            /(?<=<FileName=["']?)([^>"']+)(?=["']?>)/,
+          )?.[0];
+          console.log(`\n📄 Processing file: ${fileName}`);
 
-          for (let i = startIdx; i < buffer.length; i++) {
-            const char = buffer[i];
+          const fileNameTagEnd = buffer.indexOf("</FileName>");
+          if (fileNameTagEnd === -1) break;
 
-            if (!foundArrayStart) {
-              if (char === "[") {
-                foundArrayStart = true;
-                depth++;
-                console.log("\n📊 Found array start, depth:", depth);
-              }
-              continue;
-            }
+          try {
+            const normalizedFileName = normalizePath(fileName!);
+            const fileContent = buffer.match(
+              /(?<=<FileName=[^>]+>)(.*?)(?=<\/FileName>)/s,
+            )?.[0];
 
-            if (escape) {
-              escape = false;
-              continue;
-            }
+            console.log("\n📄 Creating file:", normalizedFileName);
 
-            if (char === "\\") {
-              escape = true;
-            } else if (char === '"' && !escape) {
-              inString = !inString;
-            } else if (!inString) {
-              if (char === "[") {
-                depth++;
-                console.log("📊 Depth increased:", depth);
-              }
-              if (char === "]") {
-                depth--;
-                console.log("📊 Depth decreased:", depth);
-                if (depth === 0) {
-                  const possibleEnd = buffer.indexOf("```", i);
-                  if (possibleEnd !== -1) {
-                    endIdx = possibleEnd + 3;
-                    console.log(
-                      "\n🎯 Found end with code block at:",
-                      possibleEnd,
-                    );
-                  } else {
-                    endIdx = i + 1;
-                    console.log("\n🎯 Found end at bracket:", i);
-                  }
-                  break;
-                }
-              }
-            }
-          }
+            if (!state.completedFiles.has(normalizedFileName)) {
+              await updateFile(normalizedFileName, fileContent!);
+              state.completedFiles.add(normalizedFileName);
 
-          if (endIdx !== -1) {
-            let jsonStr = buffer.substring(startIdx, endIdx);
-            console.log(
-              "\n Raw extracted JSON (first 100 chars):",
-              JSON.stringify(jsonStr.substring(0, 100)),
-            );
-
-            // Remove markdown code block markers if present
-            jsonStr = jsonStr
-              .replace(/^```json\s*(\r?\n|\r)?/, "")
-              .replace(/(\r?\n|\r)?\s*```$/, "")
-              .trim();
-
-            // Use JSON.stringify to show the actual string content with escapes
-            console.log("\n🧹 Cleaned JSON (raw):", JSON.stringify(jsonStr));
-
-            try {
-              // Handle the case where the string might be a JSON-encoded string
-              let parseableJson = jsonStr;
-              try {
-                // If it's a JSON string, parse it first
-                if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) {
-                  parseableJson = JSON.parse(jsonStr);
-                }
-              } catch (e) {
+              // Update remaining files in requirements
+              if (state.requirements?.remainingFiles) {
+                state.requirements.remainingFiles =
+                  state.requirements.remainingFiles.filter(
+                    (file) => normalizePath(file) !== normalizedFileName,
+                  );
                 console.log(
-                  "\n⚠️ Initial string parse failed, trying direct parse...",
+                  "\nRemaining files:",
+                  state.requirements.remainingFiles,
                 );
               }
 
-              try {
-                // Now try to parse the JSON data
-                const jsonData = JSON.parse(parseableJson);
-                console.log("\n✅ Successfully parsed outer JSON");
-
-                if (Array.isArray(jsonData)) {
-                  for (const obj of jsonData) {
-                    if (obj.aFileName && typeof obj.fileContent === "string") {
-                      const normalizedFileName = normalizePath(obj.aFileName);
-                      console.log("\n📄 Processing file:", normalizedFileName);
-                      console.log(
-                        "📄 Raw fileContent length:",
-                        obj.fileContent.length,
-                      );
-
-                      if (!state.completedFiles.has(normalizedFileName)) {
-                        // Handle requirements.json specially when it's the first file
-                        if (
-                          normalizedFileName.includes("requirements.json") ||
-                          (normalizedFileName.includes("requirement.json") &&
-                            state.completedFiles.size === 0)
-                        ) {
-                          try {
-                            let requirementsJson = obj.fileContent;
-
-                            // If the content is a string containing JSON, parse it
-                            try {
-                              const parsed = JSON.parse(requirementsJson);
-                              if (typeof parsed === "string") {
-                                requirementsJson = parsed;
-                              }
-                            } catch (e) {
-                              // If parsing fails, use the original string
-                              console.log(
-                                "\n⚠️ First parse failed, using original...",
-                              );
-                            }
-
-                            // Final parse to get the requirements object
-                            state.requirements = JSON.parse(requirementsJson);
-
-                            // Normalize all paths in requirements
-                            state.requirements!.remainingFiles =
-                              state.requirements!.remainingFiles.map(
-                                normalizePath,
-                              );
-                            console.log(
-                              "\n📋 Requirements loaded:",
-                              state.requirements,
-                            );
-                          } catch (e) {
-                            console.error(
-                              "\n❌ Error parsing requirements.json:",
-                              e,
-                              "\nContent type:",
-                              typeof obj.fileContent,
-                              "\nContent length:",
-                              obj.fileContent.length,
-                            );
-                          }
-                        }
-
-                        await updateFile(normalizedFileName, obj.fileContent);
-                        state.completedFiles.add(normalizedFileName);
-
-                        // Update remaining files in requirements
-                        if (state.requirements?.remainingFiles) {
-                          state.requirements.remainingFiles =
-                            state.requirements.remainingFiles.filter(
-                              (file) =>
-                                normalizePath(file) !== normalizedFileName,
-                            );
-                          console.log(
-                            "\nRemaining files:",
-                            state.requirements.remainingFiles,
-                          );
-                        }
-
-                        console.log(
-                          `\n✅ Successfully processed: ${normalizedFileName}`,
-                        );
-                        console.log(
-                          "Completed files:",
-                          Array.from(state.completedFiles),
-                        );
-                      }
-                    }
-                  }
-                }
-              } catch (e) {
-                console.log("\n⚠️ Invalid JSON data, continuing to buffer...");
-              }
-
-              // Remove processed data from buffer
-              buffer = buffer.substring(endIdx);
-            } catch (e) {
-              console.log("\n⚠️ Error processing stream:", e);
+              console.log(`\n✅ Successfully processed: ${normalizedFileName}`);
+              console.log("Completed files:", Array.from(state.completedFiles));
             }
+
+            // Remove the processed file content from the buffer
+            buffer = buffer.substring(fileNameTagEnd + "</FileName>".length);
+          } catch (e) {
+            // If processing fails, remove up to the start of the failed tag to avoid infinite loop
+            buffer = buffer.substring(fileTagStart + 1);
+            console.log("\n⚠️ Error processing file:", e);
           }
         }
       }
 
       if (done) {
-        // Check if we have requirements and if all files are completed
+        // Check remaining requirements
         if (state.requirements?.remainingFiles) {
           const remainingRequired = state.requirements.remainingFiles.filter(
             (file) => !state.completedFiles.has(normalizePath(file)),
@@ -444,4 +329,19 @@ async function updateFile(aFileName: string, content: string) {
     console.error("📝 Debug - Content that failed:", content);
     throw error;
   }
+}
+
+function loadingAnimation() {
+  const P = ["\\", "|", "/", "-"];
+  let x = 0;
+  const loader = setInterval(() => {
+    process.stdout.write(`\r${P[x++]}`);
+    x %= P.length;
+  }, 250);
+
+  setTimeout(() => {
+    clearInterval(loader);
+  }, 5000);
+
+  return loader;
 }
