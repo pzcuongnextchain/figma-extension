@@ -22,17 +22,17 @@ export const CodeExplorer: React.FC = () => {
   const updateTimeoutRef = useRef<NodeJS.Timeout>();
   const [isIncompleteResponse, setIsIncompleteResponse] = useState(false);
   const [uncompleteContent, setUncompleteContent] = useState("");
-  const updateFile = (fileName: string, content: string) => {
-    console.log("Updating file:", fileName);
+  const updateFile = (aFileName: string, content: string) => {
+    console.log("Updating file:", aFileName);
     setFiles((prevFiles) => {
-      const fileIndex = prevFiles.findIndex((f) => f.fileName === fileName);
+      const fileIndex = prevFiles.findIndex((f) => f.aFileName === aFileName);
       if (fileIndex === -1) {
-        console.log("Adding new file:", fileName);
-        return [...prevFiles, { fileName, fileContent: content }];
+        console.log("Adding new file:", aFileName);
+        return [...prevFiles, { aFileName, fileContent: content }];
       } else {
-        console.log("Updating existing file:", fileName);
+        console.log("Updating existing file:", aFileName);
         if (prevFiles[fileIndex].fileContent !== content) {
-          setUpdatedFiles((prev) => new Set(prev).add(fileName));
+          setUpdatedFiles((prev) => new Set(prev).add(aFileName));
         }
 
         const newFiles = [...prevFiles];
@@ -45,8 +45,8 @@ export const CodeExplorer: React.FC = () => {
     });
   };
 
-  const isFileUpdated = (fileName: string) => {
-    return updatedFiles.has(fileName);
+  const isFileUpdated = (aFileName: string) => {
+    return updatedFiles.has(aFileName);
   };
 
   useEffect(() => {
@@ -91,8 +91,8 @@ export const CodeExplorer: React.FC = () => {
     };
   }, []);
 
-  const handleFileClick = (fileName: string, content: string | null) => {
-    setSelectedFile({ fileName, fileContent: content });
+  const handleFileClick = (aFileName: string, content: string | null) => {
+    setSelectedFile({ aFileName, fileContent: content });
   };
 
   const processStreamResponse = async (response: Response) => {
@@ -173,14 +173,14 @@ export const CodeExplorer: React.FC = () => {
         }
 
         const fileEntryRegex =
-          /"(fileName|fileContent)"\s*:\s*"((?:[^"\\]|\\.)*?)"/g;
+          /"(aFileName|fileContent)"\s*:\s*"((?:[^"\\]|\\.)*?)"/g;
         let match;
         let currentFileName: string | null = null;
         let currentContent: string | null = null;
 
         while ((match = fileEntryRegex.exec(accumulatedData)) !== null) {
           const [_, type, value] = match;
-          if (type === "fileName") {
+          if (type === "aFileName") {
             currentFileName = value;
             if (pendingContents[currentFileName]) {
               try {
@@ -212,10 +212,10 @@ export const CodeExplorer: React.FC = () => {
             } else {
               const nextFileNameMatch = accumulatedData
                 .slice(match.index)
-                .match(/"fileName"\s*:\s*"([^"]+)"/);
+                .match(/"aFileName"\s*:\s*"([^"]+)"/);
               if (nextFileNameMatch) {
-                const fileName = nextFileNameMatch[1];
-                pendingContents[fileName] = currentContent;
+                const aFileName = nextFileNameMatch[1];
+                pendingContents[aFileName] = currentContent;
               } else {
                 setUncompleteContent(currentContent);
               }
@@ -277,7 +277,7 @@ export const CodeExplorer: React.FC = () => {
     files.forEach((file) => {
       if (file.fileContent) {
         // Create folders if the file path contains directories
-        const filePath = file.fileName;
+        const filePath = file.aFileName;
         zip.file(filePath, file.fileContent);
       }
     });

@@ -13,7 +13,7 @@
     "declaration": true,
     "sourceMap": true
   },
-  "include": ["src/cli/**/*", "src/services/**/*", "src/types/**/*"],
+  "include": ["src/cli/**/*"],
   "ts-node": {
     "esm": true,
     "experimentalSpecifierResolution": "node"

@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse } from "axios";
-const API_BASE_URL = "http://localhost:8080";
+const API_BASE_URL = "http://localhost:8080/ai";
 
 class AxiosService {
   private static instance: AxiosService;

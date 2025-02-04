@@ -1,14 +1,21 @@
-export type AIModel = "openai" | "gemini";
+export type AIModel = "openai" | "gemini" | "anthropic" | "merlin";
 
 export abstract class BaseService {
-  private static currentModel: AIModel = "gemini";
-  private static isNode = typeof window === "undefined";
+  private static currentModel: AIModel = "merlin";
 
   protected static get API_BASE_URL(): string {
-    const baseUrl = this.isNode
-      ? process.env.API_BASE_URL || "http://localhost:8080"
-      : "http://localhost:8080";
+    const baseUrl = process.env.API_BASE_URL || "http://localhost:8080/ai";
     return `${baseUrl}/${this.currentModel}`;
+  }
+
+  protected static get API_BASE_URL_MERLIN(): string {
+    const baseUrl = process.env.API_BASE_URL || "http://localhost:8080/ai";
+    return `${baseUrl}/merlin`;
+  }
+
+  protected static get API_BASE_URL_GEMINI(): string {
+    const baseUrl = process.env.API_BASE_URL || "http://localhost:8080/ai";
+    return `${baseUrl}/gemini`;
   }
 
   protected static readonly CODE_EXPLORER_URL =
@@ -27,10 +34,10 @@ export abstract class BaseService {
 
   public static getModel(): AIModel {
     try {
-      return (localStorage.getItem("aiModel") as AIModel) || "openai";
+      return (localStorage.getItem("aiModel") as AIModel) || "merlin";
     } catch (error) {
       console.warn("LocalStorage is not available:", error);
-      return "openai";
+      return "merlin";
     }
   }
 
@@ -39,7 +46,7 @@ export abstract class BaseService {
     data: any,
     options?: RequestInit,
   ): Promise<any> {
-    const response = await fetch(`${this.API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${this.API_BASE_URL_GEMINI}${endpoint}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -60,7 +67,7 @@ export abstract class BaseService {
     data: any,
     options?: RequestInit,
   ): Promise<Response> {
-    const response = await fetch(`${this.API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${this.API_BASE_URL_GEMINI}${endpoint}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -137,6 +137,7 @@ function App() {
       const data = apiRes.response.map(
         (item: { analyzedData: string }) => item.analyzedData,
       );
+
       setInsight(apiRes.response);
       // const reader = response.body!.getReader();
       // let accumulatedData = "";
@@ -173,6 +174,8 @@ function App() {
       } else if (pluginMessage?.type === FIGMA_MESSAGE_TYPE.SELECTION_CHANGE) {
         setHasSelectedFrames(pluginMessage.hasSelection);
         if (pluginMessage.frameImages) {
+          setInsight([]);
+          setGeminiResponse([]);
           setFrameImages(pluginMessage.frameImages);
           parent.postMessage(
             { pluginMessage: { type: FIGMA_BUTTON_TYPE.EXPORT } },

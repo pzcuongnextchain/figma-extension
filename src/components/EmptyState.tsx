@@ -1,6 +1,10 @@
-import { Button, Stack, Typography } from "@mui/material";
+import { Button, Divider, Stack, TextField, Typography } from "@mui/material";
 import { useState } from "react";
 import { AIModel, BaseService } from "../services/base/BaseService";
+import {
+  DesignGenerationRequest,
+  sampleLandingPageRequest,
+} from "../types/design.type";
 
 interface EmptyStateProps {
   onSelectLayers: () => void;
@@ -11,56 +15,82 @@ export function EmptyState({ onSelectLayers }: EmptyStateProps) {
   const [selectedModel, setSelectedModel] = useState<AIModel>(() =>
     BaseService.getModel(),
   );
+  const [designPrompt, setDesignPrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleModelChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newModel: AIModel,
-  ) => {
-    if (newModel !== null) {
-      setSelectedModel(newModel);
-      BaseService.setModel(newModel);
+  const handleGenerateDesign = async () => {
+    try {
+      setIsGenerating(true);
+
+      const request: DesignGenerationRequest = {
+        ...sampleLandingPageRequest,
+        // prompt: designPrompt,
+      };
+
+      parent.postMessage(
+        {
+          pluginMessage: {
+            type: "generate-design",
+            request,
+          },
+        },
+        "*",
+      );
+    } catch (error) {
+      console.error("Error generating design:", error);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
   return (
     <Stack
       component="header"
-      spacing={2}
+      spacing={4}
       alignItems="center"
-      sx={{ textAlign: "center" }}
+      sx={{ textAlign: "center", maxWidth: 600, mx: "auto", p: 3 }}
     >
-      <Typography variant="h6" fontWeight="bold" paddingTop={2}>
-        Generate AI-powered components
-      </Typography>
-
-      {/* <ToggleButtonGroup
-        value={selectedModel}
-        exclusive
-        onChange={handleModelChange}
-        aria-label="AI model selection"
-        size="small"
-        color="primary"
-      >
-        <ToggleButton
-          value="openai"
-          aria-label="ChatGPT"
-          sx={{ textTransform: "none", fontSize: "1rem" }}
+      {/* Generate Design Section */}
+      <Stack spacing={2} sx={{ width: "100%" }}>
+        <Typography variant="h6" fontWeight="bold">
+          Generate Figma Design
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Describe your design idea and AI will generate a suitable Figma design
+          for you
+        </Typography>
+        <TextField
+          fullWidth
+          multiline
+          rows={3}
+          placeholder="Describe the design you want to create (e.g., 'Create a modern dashboard with a sidebar, statistics cards, and a main content area with a data table')"
+          value={designPrompt}
+          onChange={(e) => setDesignPrompt(e.target.value)}
+        />
+        <Button
+          variant="contained"
+          onClick={handleGenerateDesign}
+          disabled={!designPrompt.trim() || isGenerating}
         >
-          ChatGPT-4o
-        </ToggleButton>
-        <ToggleButton
-          value="gemini"
-          aria-label="Gemini"
-          sx={{ textTransform: "none", fontSize: "1rem" }}
-        >
-          Gemini 2.0
-        </ToggleButton>
-      </ToggleButtonGroup> */}
-
-      <Stack direction="row" spacing={2}>
-        <Button variant="outlined" onClick={onSelectLayers}>
-          Select layers to analyze
+          {isGenerating ? "Generating..." : "Generate Design"}
         </Button>
+      </Stack>
+
+      <Divider sx={{ width: "100%" }}>
+        <Typography variant="body2" color="text.secondary" sx={{ px: 2 }}>
+          OR
+        </Typography>
+      </Divider>
+
+      <Stack spacing={2} sx={{ width: "100%" }}>
+        <Typography variant="h6" fontWeight="bold">
+          Extract Code from Design
+        </Typography>
+        <Stack direction="row" spacing={2} justifyContent="center">
+          <Button variant="contained" onClick={onSelectLayers}>
+            Select Layers to Analyze
+          </Button>
+        </Stack>
       </Stack>
 
       <Typography

@@ -1,9 +1,9 @@
 {
-  "name": "@pzcuong189/figma-plugin-component-analysis",
-  "version": "0.1.0",
-  "description": "figma plugin preset",
+  "name": "pzcuong189",
+  "version": "0.1.4",
+  "description": "Generate code from Figma design",
   "license": "MIT",
-  "author": "pzcuong189",
+  "author": "pzcuong",
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -19,11 +19,14 @@
     "test": "pnpm tsc && pnpm build",
     "tsc:watch": "pnpm tsc --watch --preserveWatchOutput",
     "build:cli": "tsc -p tsconfig.cli.json && chmod +x dist/cli/index.js",
+    "build:cli:windows": "tsc -p tsconfig.cli.json",
     "prepublishOnly": "pnpm build:cli"
   },
   "dependencies": {
     "commander": "^13.0.0",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7"
   },
   "devDependencies": {
     "@emotion/react": "^11.11.4",

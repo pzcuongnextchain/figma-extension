@@ -1,9 +1,8 @@
-import LightbulbIcon from "@mui/icons-material/Lightbulb";
-import SmartButtonIcon from "@mui/icons-material/SmartButton";
-import { Box, Button, Paper, Stack, Typography } from "@mui/material";
-import { useEffect, useState } from "react";
+import { Box, Stack, Typography } from "@mui/material";
+import { useEffect, useRef, useState } from "react";
 import { ComponentAnalysisData, FrameExportData } from "../types/common.type";
 import { ComponentAnalysis } from "./ComponentAnalysis";
+import { LoadingOverlay } from "./LoadingOverlay";
 
 interface ExportViewProps {
   frameImages?: Array<{
@@ -39,13 +38,42 @@ export function ExportView({
   onAnalyzeSchema,
 }: ExportViewProps) {
   const [components, setComponents] = useState(geminiResponse);
+  const insightRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset components when frameImages changes (selection changes)
+  useEffect(() => {
+    setComponents([]);
+    // Scroll to bottom when new images are loaded
+    if (frameImages.length > 0) {
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100); // Small delay to ensure images are rendered
+    }
+  }, [frameImages]);
 
   useEffect(() => {
     setComponents(geminiResponse);
   }, [geminiResponse]);
 
+  // Scroll to insight when new insight is received
+  useEffect(() => {
+    if (insight.length > 0) {
+      insightRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [insight]);
+
+  // Scroll to bottom when components change
+  useEffect(() => {
+    if (components.length > 0) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [components]);
+
   return (
     <Stack spacing={2} sx={{ alignItems: "center" }}>
+      <LoadingOverlay show={isLoadingInsight} />
+
       <Typography variant="h6" fontWeight="bold" paddingTop={2}>
         Component Analysis
       </Typography>
@@ -83,7 +111,7 @@ export function ExportView({
         </Stack>
       )}
 
-      <Paper
+      {/* <Paper
         variant="outlined"
         sx={{
           p: 2,
@@ -93,29 +121,40 @@ export function ExportView({
         }}
       >
         <Stack spacing={2} sx={{ alignItems: "center" }}>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            fontWeight="bold"
+          >
             Component Insight
           </Typography>
-          {insight.length ? (
-            <Typography
-              variant="body2"
-              sx={{ whiteSpace: "pre-line", textAlign: "left" }}
-            >
-              {insight.map((item) => item.analyzedData)}
-            </Typography>
-          ) : (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ fontStyle: "italic" }}
-            >
-              Get insight about your components before analysis.
-            </Typography>
-          )}
+          <Box
+            ref={insightRef}
+            sx={{
+              maxHeight: 200,
+              overflowY: "auto",
+              width: "100%",
+              textAlign: "left",
+            }}
+          >
+            {insight.length ? (
+              <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                {insight.map((item) => item.analyzedData)}
+              </Typography>
+            ) : (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontStyle: "italic", textAlign: "center" }}
+              >
+                🚀 Get insight about your components before analysis.
+              </Typography>
+            )}
+          </Box>
         </Stack>
-      </Paper>
+      </Paper> */}
 
-      <Stack
+      {/* <Stack
         direction="row"
         spacing={2}
         justifyContent="center"
@@ -130,8 +169,8 @@ export function ExportView({
           startIcon={<LightbulbIcon />}
         >
           {isLoadingInsight ? "Getting Insight..." : "Get Insight"}
-        </Button>
-        <Button
+        </Button> */}
+      {/* <Button
           variant="contained"
           color="primary"
           onClick={onExport}
@@ -139,8 +178,8 @@ export function ExportView({
           startIcon={<SmartButtonIcon />}
         >
           {isLoading ? "Extracting..." : "Extract Components"}
-        </Button>
-        {/* <Button
+        </Button> */}
+      {/* <Button
           variant="contained"
           color="secondary"
           onClick={onAnalyzeSchema}
@@ -149,10 +188,10 @@ export function ExportView({
         >
           {isLoading ? "Extracting..." : "Extract Schema"}
         </Button> */}
-      </Stack>
+      {/* </Stack> */}
 
-      {components.length > 0 && (
-        <Stack spacing={2} sx={{ alignItems: "center" }}>
+      {
+        <Stack spacing={2} sx={{ alignItems: "center", width: "100%" }}>
           <ComponentAnalysis
             components={components}
             exportData={exportData!}
@@ -160,7 +199,9 @@ export function ExportView({
             insight={insight}
           />
         </Stack>
-      )}
+      }
+
+      <div ref={bottomRef} />
     </Stack>
   );
 }

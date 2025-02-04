@@ -1,10 +1,13 @@
 import _ from "lodash";
+import { DesignGeneratorService } from "../services/DesignGeneratorService";
 import {
   FIGMA_BUTTON_TYPE,
   FIGMA_MESSAGE_TYPE,
   FrameExportData,
   NodeData,
 } from "../types/common.type";
+import { DesignSystem, designSystem } from "../types/design.type";
+
 figma.showUI(__html__, {
   width: 500,
   height: 700,
@@ -21,13 +24,14 @@ figma.ui.onmessage = async (msg) => {
         if (node.type === "FRAME") {
           try {
             const bytes = await node.exportAsync({
-              format: "JPG",
-              constraint: { type: "SCALE", value: 1 },
+              format: "PNG",
+              constraint: { type: "SCALE", value: 2 },
             });
             return {
               id: node.id,
               name: node.name,
               base64: `data:image/png;base64,${figma.base64Encode(bytes)}`,
+              base64ImageWithoutMime: figma.base64Encode(bytes),
             };
           } catch (error) {
             console.error(`Error exporting frame ${node.name}:`, error);
@@ -87,6 +91,29 @@ figma.ui.onmessage = async (msg) => {
     // });
     // figma.notify("Data copied to clipboard");
   }
+
+  if (msg.type === "generate-design") {
+    try {
+      const request = msg.request;
+      const mainFrame = await DesignGeneratorService.generateDesign(
+        request,
+        designSystem as DesignSystem,
+      );
+
+      // Notify the UI that generation is complete
+      figma.ui.postMessage({ type: "generation-complete" });
+
+      // Select and zoom to the new frame
+      await figma.setCurrentPageAsync(mainFrame.parent as PageNode);
+      figma.viewport.scrollAndZoomIntoView([mainFrame]);
+    } catch (error) {
+      console.error("Error generating design:", error);
+      figma.ui.postMessage({
+        type: "generation-error",
+        error: (error as Error).message,
+      });
+    }
+  }
 };
 
 figma.on("selectionchange", async () => {
@@ -107,6 +134,7 @@ figma.on("selectionchange", async () => {
               id: node.id,
               name: node.name,
               base64: `data:image/png;base64,${figma.base64Encode(bytes)}`,
+              base64ImageWithoutMime: figma.base64Encode(bytes),
             };
           } catch (error) {
             console.error(`Error exporting frame ${node.name}:`, error);

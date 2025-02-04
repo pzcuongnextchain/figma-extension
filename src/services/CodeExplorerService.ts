@@ -22,6 +22,28 @@ export class CodeExplorerService extends BaseService {
     return response;
   }
 
+  static async getRequirements(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<Response> {
+    const response = await fetch(
+      `${this.API_BASE_URL_MERLIN}/code-generation/${id}/analyze`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        signal,
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch requirements");
+    }
+
+    return response;
+  }
+
   static async streamChatResponse(
     message: string,
     generationId: string,
