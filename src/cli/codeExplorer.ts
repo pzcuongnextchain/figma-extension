@@ -9,6 +9,7 @@ interface GenerationState {
   attemptCount: number;
   retryCount: number;
   requirements?: { remainingFiles: string[] };
+  unCompletedContent: string;
 }
 
 const MAX_ATTEMPTS = 3;
@@ -24,59 +25,70 @@ export async function processGenerationAndUpdateFiles(
     completedFiles: new Set<string>(),
     attemptCount: 0,
     retryCount: 0,
+    unCompletedContent: "",
   };
 
   try {
     if (model) BaseService.setModel(model);
 
     let isComplete = false;
+    let loadRequirements = false;
     while (!isComplete && state.attemptCount < MAX_ATTEMPTS) {
       try {
-        // Reset accumulated data for each new attempt
         state.accumulatedData = "";
 
         if (state.attemptCount === 0) {
-          console.log("🔑 Loading requirements...");
+          if (!loadRequirements) {
+            console.log("🔑 Loading requirements...");
 
-          const requirementsResponse =
-            await CodeExplorerService.getRequirements(generationId);
-          const requirements = await requirementsResponse.json();
+            // const requirementsResponse =
+            //   await CodeExplorerService.getRequirements(generationId);
+            // const requirements = await requirementsResponse.json();
 
-          try {
-            let requirementsJson = requirements.response;
-            try {
-              const parsed = JSON.parse(requirementsJson);
-              if (typeof parsed === "string") {
-                requirementsJson = parsed;
-              }
-            } catch (e) {
-              console.log("\n⚠️ First parse failed, using original...");
-              console.log(
-                "🔍 Original requirements:",
-                requirements.response.text,
-              );
+            // try {
+            //   let requirementsJson = requirements.response;
+            //   try {
+            //     const parsed = JSON.parse(requirementsJson);
+            //     if (typeof parsed === "string") {
+            //       requirementsJson = parsed;
+            //     }
+            //   } catch (e) {
+            //     console.log("\n⚠️ First parse failed, using original...");
+            //     console.log(
+            //       "🔍 Original requirements:",
+            //       requirements.response.text,
+            //     );
+            //   }
+
+            //   // Set the requirements in state
+            //   state.requirements = JSON.parse(requirementsJson);
+            //   state.requirements!.remainingFiles =
+            //     state.requirements!.remainingFiles.map(normalizePath);
+            //   console.log("\n📋 Requirements loaded:", state.requirements);
+
+            //   // Write requirements file
+            //   await fs.writeFile(
+            //     "requirements.json",
+            //     requirements.response,
+            //     "utf8",
+            //   );
+
+            //   loadRequirements = true;
+
+            const response =
+              await CodeExplorerService.getGenerationStream(generationId);
+            await processStreamAndUpdateFiles(response, state);
+
+            if (state.requirements?.remainingFiles.length === 0) {
+              console.log("\n✅ All files processed successfully!");
+              isComplete = true;
+              break;
             }
-
-            // Set the requirements in state
-            state.requirements = JSON.parse(requirementsJson);
-            state.requirements!.remainingFiles =
-              state.requirements!.remainingFiles.map(normalizePath);
-            console.log("\n📋 Requirements loaded:", state.requirements);
-
-            // Write requirements file
-            await fs.writeFile(
-              "requirements.json",
-              requirements.response,
-              "utf8",
-            );
-          } catch (e) {
-            console.error("\n❌ Error parsing requirements:", e);
-            throw e;
+            // } catch (e) {
+            //   console.error("\n❌ Error parsing requirements:", e);
+            //   throw e;
+            // }
           }
-
-          const response =
-            await CodeExplorerService.getGenerationStream(generationId);
-          await processStreamAndUpdateFiles(response, state);
         } else {
           console.log(
             `\n🔄 Attempt ${state.attemptCount + 1} to complete generation...`,
@@ -105,6 +117,9 @@ export async function processGenerationAndUpdateFiles(
                 
                 Files still needed to be generated:
                 ${remainingRequired.join(", ")}
+
+                Uncompleted content:
+                ${state.unCompletedContent}
                 
                 Important: 
                 1. Do not repeat any completed files listed above
@@ -139,15 +154,6 @@ export async function processGenerationAndUpdateFiles(
             }
           }
         }
-
-        // Check if we have a valid complete array
-        if (validateAccumulatedData(state.accumulatedData)) {
-          console.log("\n✅ All files processed successfully!");
-          isComplete = true;
-        } else {
-          state.attemptCount++;
-          state.retryCount = 0; // Reset retry count for new attempt
-        }
       } catch (error) {
         if (error instanceof Error && error.message === "INCOMPLETE_CONTENT") {
           state.attemptCount++;
@@ -179,6 +185,8 @@ async function processStreamAndUpdateFiles(
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let currentProcessingFile = null;
+  let loader = null;
 
   try {
     while (true) {
@@ -189,20 +197,34 @@ async function processStreamAndUpdateFiles(
         buffer += chunk;
 
         while (true) {
+          // First check for thinking content
+          const thinkingMatch = buffer.match(/<Thinking>(.*?)<\/Thinking>/s);
+          if (thinkingMatch) {
+            console.log("\n🤔 Thinking:", thinkingMatch[1].trim());
+            // Remove the processed thinking block
+            buffer = buffer.substring(
+              buffer.indexOf("</Thinking>") + "</Thinking>".length,
+            );
+            continue; // Continue to check for more thinking blocks
+          }
+
+          // Then check for file tags
           const fileTagStart = buffer.indexOf("<FileName=");
           if (fileTagStart === -1) break;
           const fileTagEnd = buffer.indexOf(">", fileTagStart);
           if (fileTagEnd === -1) break;
 
-          console.log(
-            "Found file tag:",
-            buffer.substring(fileTagStart, fileTagEnd + 1),
-          );
+          const fileName = buffer.match(/(?<=<FileName=)[^>]+(?=>)/)?.[0];
 
-          const fileName = buffer.match(
-            /(?<=<FileName=["']?)([^>"']+)(?=["']?>)/,
-          )?.[0];
-          console.log(`\n📄 Processing file: ${fileName}`);
+          // Only show processing message and start loader if it's a new file
+          if (currentProcessingFile !== fileName) {
+            if (loader) {
+              clearInterval(loader);
+            }
+            currentProcessingFile = fileName;
+            console.log(`\n📄 Processing file: ${fileName}`);
+            loader = loadingAnimation();
+          }
 
           const fileNameTagEnd = buffer.indexOf("</FileName>");
           if (fileNameTagEnd === -1) break;
@@ -213,13 +235,29 @@ async function processStreamAndUpdateFiles(
               /(?<=<FileName=[^>]+>)(.*?)(?=<\/FileName>)/s,
             )?.[0];
 
-            console.log("\n📄 Creating file:", normalizedFileName);
-
             if (!state.completedFiles.has(normalizedFileName)) {
+              if (
+                normalizedFileName?.includes("requirements.json") ||
+                normalizedFileName?.includes("requirement.json")
+              ) {
+                console.log(
+                  "\n🔍 Extracting requirements from file content...",
+                );
+                const requirements = JSON.parse(fileContent!);
+                state.requirements = requirements;
+                state.requirements!.remainingFiles =
+                  state.requirements!.remainingFiles.map(normalizePath);
+                console.log("\n📋 Requirements loaded:", state.requirements);
+              }
+
               await updateFile(normalizedFileName, fileContent!);
               state.completedFiles.add(normalizedFileName);
 
-              // Update remaining files in requirements
+              if (loader) {
+                clearInterval(loader);
+                loader = null;
+              }
+
               if (state.requirements?.remainingFiles) {
                 state.requirements.remainingFiles =
                   state.requirements.remainingFiles.filter(
@@ -232,25 +270,33 @@ async function processStreamAndUpdateFiles(
               }
 
               console.log(`\n✅ Successfully processed: ${normalizedFileName}`);
-              console.log("Completed files:", Array.from(state.completedFiles));
+              currentProcessingFile = null;
             }
 
-            // Remove the processed file content from the buffer
             buffer = buffer.substring(fileNameTagEnd + "</FileName>".length);
           } catch (e) {
-            // If processing fails, remove up to the start of the failed tag to avoid infinite loop
-            buffer = buffer.substring(fileTagStart + 1);
+            if (loader) {
+              clearInterval(loader);
+              loader = null;
+            }
             console.log("\n⚠️ Error processing file:", e);
+            currentProcessingFile = null;
           }
         }
       }
 
       if (done) {
+        if (loader) {
+          clearInterval(loader);
+          loader = null;
+        }
         // Check remaining requirements
         if (state.requirements?.remainingFiles) {
           const remainingRequired = state.requirements.remainingFiles.filter(
             (file) => !state.completedFiles.has(normalizePath(file)),
           );
+
+          state.unCompletedContent = buffer;
 
           if (remainingRequired.length > 0) {
             console.log(
@@ -264,52 +310,15 @@ async function processStreamAndUpdateFiles(
         if (state.completedFiles.size === 0) {
           throw new Error("INCOMPLETE_CONTENT");
         }
+
         return;
       }
     }
   } finally {
+    if (loader) {
+      clearInterval(loader);
+    }
     reader.releaseLock();
-  }
-}
-
-// Helper function to validate if we have a complete JSON array
-function isCompleteJsonArray(str: string): boolean {
-  try {
-    const cleaned = str
-      .trim()
-      .replace(/^```json\s*\n?/, "")
-      .replace(/```$/, "")
-      .trim();
-
-    if (!cleaned.startsWith("[") || !cleaned.endsWith("]")) {
-      return false;
-    }
-
-    JSON.parse(cleaned);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-// Update validateAccumulatedData to handle markdown code blocks and formatted JSON
-function validateAccumulatedData(data: string): boolean {
-  try {
-    // Clean up the input by removing markdown code block markers
-    const cleanData = data
-      .trim()
-      .replace(/^```(json)?\s*\n?/, "") // Remove opening code block with optional newline
-      .replace(/```$/, "") // Remove closing code block
-      .trim();
-
-    // Check if we have a complete array
-    if (cleanData.match(/^\[\s*\n?\s*{/) && cleanData.match(/}\s*\n?\s*\]$/)) {
-      JSON.parse(cleanData);
-      return true;
-    }
-    return false;
-  } catch (e) {
-    return false;
   }
 }
 
