@@ -1,5 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse } from "axios";
-const API_BASE_URL = "http://localhost:8080/ai";
+
+const API_BASE_URL =
+  process.env.API_BASE_URL || "https://figma-extension-be-x3mb.onrender.com/ai";
 
 class AxiosService {
   private static instance: AxiosService;

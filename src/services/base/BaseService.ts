@@ -1,21 +1,20 @@
 export type AIModel = "openai" | "gemini" | "anthropic" | "merlin";
+const API_BASE_URL =
+  process.env.API_BASE_URL || "https://figma-extension-be-x3mb.onrender.com/ai";
 
 export abstract class BaseService {
   private static currentModel: AIModel = "merlin";
 
   protected static get API_BASE_URL(): string {
-    const baseUrl = process.env.API_BASE_URL || "http://localhost:8080/ai";
-    return `${baseUrl}/${this.currentModel}`;
+    return `${API_BASE_URL}/${this.currentModel}`;
   }
 
   protected static get API_BASE_URL_MERLIN(): string {
-    const baseUrl = process.env.API_BASE_URL || "http://localhost:8080/ai";
-    return `${baseUrl}/merlin`;
+    return `${API_BASE_URL}/merlin`;
   }
 
   protected static get API_BASE_URL_GEMINI(): string {
-    const baseUrl = process.env.API_BASE_URL || "http://localhost:8080/ai";
-    return `${baseUrl}/gemini`;
+    return `${API_BASE_URL}/gemini`;
   }
 
   protected static readonly CODE_EXPLORER_URL =

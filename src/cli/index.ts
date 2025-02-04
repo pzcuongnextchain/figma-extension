@@ -8,9 +8,8 @@ import { promisify } from "util";
 import { AIModel } from "../services/base/BaseService.js";
 import { processGenerationAndUpdateFiles } from "./codeExplorer.js";
 
-// Allow setting API URL via environment variable
-process.env.API_BASE_URL =
-  process.env.API_BASE_URL || "http://localhost:8080/ai";
+const URL =
+  process.env.API_BASE_URL || "https://figma-extension-be-x3mb.onrender.com/ai";
 
 const rl = readline.createInterface({
   input: process.stdin,
