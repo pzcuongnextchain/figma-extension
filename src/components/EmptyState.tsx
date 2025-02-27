@@ -1,4 +1,4 @@
-import { Button, Divider, Stack, TextField, Typography } from "@mui/material";
+import { Button, Stack, Typography } from "@mui/material";
 import { useState } from "react";
 import { AIModel, BaseService } from "../services/base/BaseService";
 import {
@@ -51,7 +51,7 @@ export function EmptyState({ onSelectLayers }: EmptyStateProps) {
       sx={{ textAlign: "center", maxWidth: 600, mx: "auto", p: 3 }}
     >
       {/* Generate Design Section */}
-      <Stack spacing={2} sx={{ width: "100%" }}>
+      {/* <Stack spacing={2} sx={{ width: "100%" }}>
         <Typography variant="h6" fontWeight="bold">
           Generate Figma Design
         </Typography>
@@ -80,7 +80,7 @@ export function EmptyState({ onSelectLayers }: EmptyStateProps) {
         <Typography variant="body2" color="text.secondary" sx={{ px: 2 }}>
           OR
         </Typography>
-      </Divider>
+      </Divider> */}
 
       <Stack spacing={2} sx={{ width: "100%" }}>
         <Typography variant="h6" fontWeight="bold">

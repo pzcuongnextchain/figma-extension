@@ -1,6 +1,5 @@
 export type AIModel = "openai" | "gemini" | "anthropic" | "merlin";
-const API_BASE_URL =
-  process.env.API_BASE_URL || "https://figma-extension-be-x3mb.onrender.com/ai";
+const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:8080/ai";
 
 export abstract class BaseService {
   private static currentModel: AIModel = "merlin";

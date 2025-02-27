@@ -160,6 +160,8 @@ export function ComponentAnalysis({
         (component) => component.analysis[0],
       );
 
+      console.log(frameImages);
+
       // Create insight array with frame images
       const insightWithImages = frameImages.map((frame) => ({
         analyzedData: "", // Empty string as we're focusing on images
@@ -167,6 +169,7 @@ export function ComponentAnalysis({
       }));
 
       const data = await CodeGenerationService.saveGenerationData(
+        exportData,
         analyzedComponents,
         insightWithImages, // Use the new insight array with images
       );

@@ -1,4 +1,4 @@
-import { ComponentAnalysisData } from "../types/common.type";
+import { ComponentAnalysisData, FrameExportData } from "../types/common.type";
 import { BaseService } from "./base/BaseService";
 
 interface GenerationResponse {
@@ -7,13 +7,13 @@ interface GenerationResponse {
 
 export class CodeGenerationService extends BaseService {
   static async saveGenerationData(
-    // frameExportData: FrameExportData,
+    frameExportData: FrameExportData,
     analyzedComponents: ComponentAnalysisData[],
     insights: { analyzedData: string; base64Image: string }[],
   ): Promise<GenerationResponse> {
     return this.post<GenerationResponse>("/code-generation/save", {
       components: analyzedComponents,
-      // data: frameExportData,
+      data: frameExportData,
       insights,
     });
   }
